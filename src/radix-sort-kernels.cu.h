@@ -16,16 +16,37 @@ __global__ void naiveMemcpy(float* d_out, float* d_inp, const uint32_t N) {
 */
 
 /**
- * Step 1: This kernel loads and sorts its tile in on chip memory
+ * Step 1 + 2: This kernel loads and sorts it's b-bit of it's tile on on-chip memory and 
+ * writes the histogram and sorted tile to global memory
 */
-__global__ void loadSort(int* d_inp) {
+__global__ void sortAndWriteHistogram(int* d_inp, int* d_out, int b, int elementsPerThread, int arrLen, int iteration) {
+    int threadId = threadIdx.x;
+    int globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    int histSize = 1<<b;
 
-}
+    __shared__ int histogram[histSize];
 
-/**
- * Step 2: This kernel writes the histogram and sorted tile to global memory
-*/
-__global__ void writeHistogramAndData(int* d_out) {
+    histogram[threadId%(histSize)] = 0;
+    __syncthreads();
+
+    // TODO: Sort the block locally
+
+
+    for (int i=0; i < elementsPerThread; ++i) { // handle elements per thread numbner of elements 
+        int next = globalId*4 + i; // index of element to be handled
+        if (next < arrLen) { // check that we're in bounds
+            int rank = (d_inp[next] >> (interation*b)) & (histSize-1); // get b bits corresponding to the current iteration
+            atomicAdd(histogram[rank], 1); // atomically increase the value of the bucket at index rank
+        }
+    }
+    __syncthreads();
+
+    // TODO: try to keep the histogram in local memory, for use in next kernel
+
+    if (threadId < histSize) {
+        int offset = blockIdx.x * histSize + threadId; // calculate position in global memory for histogram value
+        d_out[offset] = histogram[threadId]; // copy histogram value to global memory
+    }
 
 }
 
