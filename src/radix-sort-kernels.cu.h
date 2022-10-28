@@ -3,17 +3,6 @@
 
 typedef unsigned int uint32_t; 
 
-/**
- * Naive memcpy kernel, for the purpose of comparing with
- * a more "realistic" bandwidth number.
- 
-__global__ void naiveMemcpy(float* d_out, float* d_inp, const uint32_t N) {
-    uint32_t gid = blockIdx.x * blockDim.x + threadIdx.x;
-    if(gid < N) {
-        d_out[gid] = d_inp[gid];
-    }
-}
-*/
 
 /**
  * Step 1 + 2: This kernel loads and sorts it's b-bit of it's tile on on-chip memory and 
@@ -22,9 +11,9 @@ __global__ void naiveMemcpy(float* d_out, float* d_inp, const uint32_t N) {
 __global__ void sortAndWriteHistogram(int* d_inp, int* d_out, int b, int elementsPerThread, int arrLen, int iteration) {
     int threadId = threadIdx.x;
     int globalId = blockIdx.x * blockDim.x + threadIdx.x;
-    int histSize = 1<<b;
+    int histSize = 16;
 
-    __shared__ int histogram[histSize];
+    __shared__ int histogram[16];
 
     histogram[threadId%(histSize)] = 0;
     __syncthreads();
@@ -35,13 +24,14 @@ __global__ void sortAndWriteHistogram(int* d_inp, int* d_out, int b, int element
     for (int i=0; i < elementsPerThread; ++i) { // handle elements per thread numbner of elements 
         int next = globalId*4 + i; // index of element to be handled
         if (next < arrLen) { // check that we're in bounds
-            int rank = (d_inp[next] >> (interation*b)) & (histSize-1); // get b bits corresponding to the current iteration
-            atomicAdd(histogram[rank], 1); // atomically increase the value of the bucket at index rank
+            int rank = (d_inp[next] >> (iteration*b)) & (histSize-1); // get b bits corresponding to the current iteration
+            atomicAdd(&histogram[rank], 1); // atomically increase the value of the bucket at index rank
         }
     }
     __syncthreads();
 
     // TODO: try to keep the histogram in local memory, for use in next kernel
+    // 
 
     if (threadId < histSize) {
         int offset = blockIdx.x * histSize + threadId; // calculate position in global memory for histogram value

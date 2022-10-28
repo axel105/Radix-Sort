@@ -16,7 +16,7 @@
   * @size: size of @data
   * @H: maximum bounds for random numbers
   */
-void randomInitNat(unsigned int* data, const unsigned int size, const unsigned int H) {
+void randomInitNat(int* data, const int size, const int H) {
     for (int i = 0; i < size; ++i) {
         unsigned long int r = rand();
         data[i] = r % H;
