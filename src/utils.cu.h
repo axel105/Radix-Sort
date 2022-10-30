@@ -7,6 +7,9 @@
 #include <math.h>
 #include <sys/time.h>
 #include <time.h>
+#include <stdbool.h>
+
+typedef unsigned int uint32_t; 
 
 
 /**
@@ -16,11 +19,20 @@
   * @size: size of @data
   * @H: maximum bounds for random numbers
   */
-void randomInitNat(int* data, const int size, const int H) {
+void randomInitNat(uint32_t* data, const uint32_t size, const uint32_t H) {
     for (int i = 0; i < size; ++i) {
         unsigned long int r = rand();
         data[i] = r % H;
     }
+}
+
+void log_vec(char* name, uint32_t *vec, uint32_t size){
+    fprintf(stderr, "%s: [", name);
+    for(uint32_t i = 0; i < size; ++i){
+        fprintf(stderr, " %d,", vec[i]);
+    }
+    fprintf(stderr, " ]\n");
+    
 }
 
 #endif // !UTILS
