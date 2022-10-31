@@ -7,10 +7,19 @@ typedef unsigned int uint32_t;
 /**
  * Step 1 + 2: This kernel loads and sorts it's b-bit of it's tile on on-chip memory and 
  * writes the histogram and sorted tile to global memory
+ *
+ * @keys Array to sort
+ * @g_hist Output array (representing the histogram)
+ * @bits number of bits too look at
+ * @elem_pthread number of keys process by one thread at the time
+ * @in_size Size of @keys
+ * @hist_size Size of @g_hist
+ * @it iteration number
 */
 __global__ void compute_histogram(uint32_t* keys, uint32_t* g_hist, 
                                       uint32_t bits, uint32_t elem_pthread, 
-                                      uint32_t in_size,uint32_t hist_size, uint32_t it) {
+                                      uint32_t in_size,uint32_t hist_size, 
+                                      uint32_t it) {
     uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
 
     // Assuming histogram is filled with 0
@@ -33,7 +42,7 @@ __global__ void compute_histogram(uint32_t* keys, uint32_t* g_hist,
     //__syncthreads();
     //if (globalId < hist_size) {
     //    printf("histogram[%d]: %d\n", globalId, histogram[globalId]);
-    //    g_hist[globalId] = histogram[globalId]; // copy histogram value to global memory
+    //    g_hist[globalId] = histoamgram[globalId]; // copy histogram value to global memory
     //}
 }
 
