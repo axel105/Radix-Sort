@@ -61,26 +61,26 @@ __global__ void compute_histogram(uint32_t* keys, uint32_t* g_hist,
  * This kernel transposes a given Matrix in a coalesced fascion
  * source: https://developer.download.nvidia.com/compute/DevZone/C/html_x64/6_Advanced/transpose/doc/MatrixTranspose.pdf
 */
-__global__ void transposeCoalesced(float *odata,
-            float *idata, int width, int height)
-{
-  __shared__ float tile[TILE_DIM][TILE_DIM];
-  int xIndex = blockIdx.x*TILE_DIM + threadIdx.x;
-  int yIndex = blockIdx.y*TILE_DIM + threadIdx.y;
-  int index_in = xIndex + (yIndex)*width;
-  xIndex = blockIdx.y * TILE_DIM + threadIdx.x;
-  yIndex = blockIdx.x * TILE_DIM + threadIdx.y;
-  int index_out = xIndex + (yIndex)*height;
-  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
-    tile[threadIdx.y+i][threadIdx.x] =
-      idata[index_in+i*width];
-  }
-  __syncthreads();
-  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
-    odata[index_out+i*height] =
-      tile[threadIdx.x][threadIdx.y+i];
-  }
-}
+//__global__ void transposeCoalesced(float *odata,
+//            float *idata, int width, int height)
+//{
+//  __shared__ float tile[TILE_DIM][TILE_DIM];
+//  int xIndex = blockIdx.x*TILE_DIM + threadIdx.x;
+//  int yIndex = blockIdx.y*TILE_DIM + threadIdx.y;
+//  int index_in = xIndex + (yIndex)*width;
+//  xIndex = blockIdx.y * TILE_DIM + threadIdx.x;
+//  yIndex = blockIdx.x * TILE_DIM + threadIdx.y;
+//  int index_out = xIndex + (yIndex)*height;
+//  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
+//    tile[threadIdx.y+i][threadIdx.x] =
+//      idata[index_in+i*width];
+//  }
+//  __syncthreads();
+//  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
+//    odata[index_out+i*height] =
+//      tile[threadIdx.x][threadIdx.y+i];
+//  }
+//}
 
 /**
  * Step 3: This kernel performs a prefix sum on all the histogram tables to compute global digit offsets
@@ -101,7 +101,7 @@ __global__ void scatter(int* d_inp) {
 */
 #define TILE_DIM 16 
 #define BLOCK_ROWS 16
-__global__ void transposeNaive(float *odata, const float *idata) {
+__global__ void transposeNaive(uint32_t *odata, uint32_t *idata) {
   int x = blockIdx.x * TILE_DIM + threadIdx.x;
   int y = blockIdx.y * TILE_DIM + threadIdx.y;
   int width = gridDim.x * TILE_DIM;
@@ -109,6 +109,7 @@ __global__ void transposeNaive(float *odata, const float *idata) {
   for (int j = 0; j < TILE_DIM; j+= BLOCK_ROWS)
     odata[x*width + (y+j)] = idata[(y+j)*width + x];
 }
+
 
 
 #endif // !RADIX_KERNEL

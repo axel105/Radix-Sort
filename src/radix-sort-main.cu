@@ -18,7 +18,7 @@ int main(int argc, char **argv){
     const int in_size = parse_args(argc, argv);
     //test_compute_histogram_cpu(in_size, 15, 4);
 
-    const uint32_t bits = 4, max_value = 15, 
+    const uint32_t bits = 4, max_value = 16, 
     elem_pthread = 4, num_thread = 256;
 
     //bool success = test_kernel1(in_size, bits, max_value, elem_pthread, num_thread);

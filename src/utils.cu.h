@@ -29,6 +29,7 @@ void randomInitNat(uint32_t* data, const uint32_t size, const uint32_t H) {
 void log_vec(char* name, uint32_t *vec, uint32_t size){
     fprintf(stderr, "%s: [", name);
     for(uint32_t i = 0; i < size; ++i){
+        if (i % 16 == 0) fprintf(stderr, "\n");
         fprintf(stderr, " %d,", vec[i]);
     }
     fprintf(stderr, " ]\n");

@@ -98,6 +98,9 @@ bool test_kernel2(const uint32_t in_size,
     // 2**bits (give the number of classes)
     const uint32_t number_classes = 1 << bits; 
 
+    uint32_t num_blocks = 
+        (in_size + num_thread * elem_pthread - 1) / (num_thread * elem_pthread); 
+
     // --- CPU Execution
     //Allocate and Initialize Host (CPU) data with random values
     uint32_t* h_keys  = (uint32_t*) malloc(in_size * sizeof(uint32_t));
@@ -111,14 +114,13 @@ bool test_kernel2(const uint32_t in_size,
     // TODO: Import CUB library to be able to use cudaSucceded?
     uint32_t* d_keys_in;
     uint32_t* d_hist;
-    uint32_t* d_histogram = (uint32_t*) malloc(number_classes * sizeof(uint32_t));
+    uint32_t* d_histogram = (uint32_t*) malloc(num_blocks * number_classes * sizeof(uint32_t));
+    uint32_t* d_hist_transpose;
 
     cudaMalloc((void**) &d_keys_in,  in_size * sizeof(uint32_t));
     cudaMemcpy(d_keys_in, h_keys, in_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
 
     //execute first kernel
-    uint32_t num_blocks = 
-        (in_size + num_thread * elem_pthread - 1) / (num_thread * elem_pthread); 
 
     cudaMalloc((void**) &d_hist, number_classes *num_blocks * sizeof(uint32_t));
     size_t hist_size_bytes = number_classes * sizeof(uint32_t);
@@ -135,12 +137,12 @@ bool test_kernel2(const uint32_t in_size,
     log_vec("device histogram", d_histogram, number_classes*num_blocks);
 
     // transpose and scan the global history arrays
-    cudaMalloc((void**) &d_hist_transpose, number_classes * sizeof(uint32_t));
+    cudaMalloc((void**) &d_hist_transpose, num_blocks * number_classes * sizeof(uint32_t));
     dim3 dimBlock(16,16);
     dim3 dimGrid(1, num_blocks*elem_pthread);
-    transposeNaive<<<dimGrid,dimBlock>>>(d_hist, d_hist_transpose);
+    transposeNaive<<<dimGrid,dimBlock>>>(d_hist_transpose, d_hist);
 
-    cudaMemcpy(d_histogram, d_hist, num_blocks*number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(d_histogram, d_hist_transpose, num_blocks*number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
 
 
