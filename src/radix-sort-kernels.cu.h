@@ -99,32 +99,15 @@ __global__ void scatter(int* d_inp) {
 /*
  * This kernel transposes the matrix
 */
-__global__ void transpose(int* in, int width, int height, int* out){
-    int numPerThread = 4;
+#define TILE_DIM 16 
+#define BLOCK_ROWS 16
+__global__ void transposeNaive(float *odata, const float *idata) {
+  int x = blockIdx.x * TILE_DIM + threadIdx.x;
+  int y = blockIdx.y * TILE_DIM + threadIdx.y;
+  int width = gridDim.x * TILE_DIM;
 
-    __shared__ double tile[16][16];
-    int i_n = blockIdx.x * tileSize + threadIdx.x;
-    int i_m = blockIdx.y * tileSize + threadIdx.y; // <- threadIdx.y only between 0 and 7
-
-    // Load matrix into tile
-    // Every Thread loads in this case 4 elements into tile.
-    int i;
-    for (i = 0; i < tileSize; i += BLOCK_ROWS){
-        if(i_n < n  && (i_m+i) < m){
-            tile[threadIdx.y+i][threadIdx.x] = matIn[(i_m+i)*n + i_n];
-        }
-    }
-    __syncthreads();
-
-    i_n = blockIdx.y * TILE_DIM + threadIdx.x; 
-    i_m = blockIdx.x * TILE_DIM + threadIdx.y;
-
-    for (i = 0; i < TILE_DIM; i += BLOCK_ROWS){
-        if(i_n < m  && (i_m+i) < n){
-            matTran[(i_m+i)*m + i_n] = tile[threadIdx.x][threadIdx.y + i]; // <- multiply by m, non-squared!
-
-        }
-    }
+  for (int j = 0; j < TILE_DIM; j+= BLOCK_ROWS)
+    odata[x*width + (y+j)] = idata[(y+j)*width + x];
 }
 
 

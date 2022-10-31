@@ -94,6 +94,7 @@ bool test_kernel2(const uint32_t in_size,
              const uint32_t elem_pthread,
              const uint32_t num_thread) {
 
+    
     // 2**bits (give the number of classes)
     const uint32_t number_classes = 1 << bits; 
 
@@ -114,31 +115,37 @@ bool test_kernel2(const uint32_t in_size,
 
     cudaMalloc((void**) &d_keys_in,  in_size * sizeof(uint32_t));
     cudaMemcpy(d_keys_in, h_keys, in_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
-    cudaMalloc((void**) &d_hist, number_classes * sizeof(uint32_t));
 
     //execute first kernel
     uint32_t num_blocks = 
         (in_size + num_thread * elem_pthread - 1) / (num_thread * elem_pthread); 
-    size_t hist_size = number_classes * sizeof(uint32_t);
-    compute_histogram<<<num_thread, num_blocks, hist_size>>>(d_keys_in, 
+
+    cudaMalloc((void**) &d_hist, number_classes *num_blocks * sizeof(uint32_t));
+    size_t hist_size_bytes = number_classes * sizeof(uint32_t);
+    fprintf(stderr, "--- Instanting kernel with num_blocks: %d, num_treads: %d\n", num_blocks, num_thread);
+    compute_histogram<<<num_blocks, num_thread, hist_size_bytes>>>(d_keys_in, 
                                                       d_hist, 
                                                       bits, 
                                                       elem_pthread, 
                                                       in_size, number_classes,0);
 
-    cudaMemcpy(d_histogram, d_hist, number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(d_histogram, d_hist, num_blocks*number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
-    //cudaCheckError();
 
+    log_vec("device histogram", d_histogram, number_classes*num_blocks);
 
     // transpose and scan the global history arrays
-    
+    cudaMalloc((void**) &d_hist_transpose, number_classes * sizeof(uint32_t));
+    dim3 dimBlock(16,16);
+    dim3 dimGrid(1, num_blocks*elem_pthread);
+    transposeNaive<<<dimGrid,dimBlock>>>(d_hist, d_hist_transpose);
+
+    cudaMemcpy(d_histogram, d_hist, num_blocks*number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
 
 
-    log_vec("host input array", h_keys, in_size);
-    log_vec("host histogram", h_histogram, number_classes);
-    log_vec("device histogram", d_histogram, number_classes);
-    return assert_array_equals(h_histogram, d_histogram, number_classes);
+    log_vec("transposed histogram", d_histogram, num_blocks*number_classes);
+    return false;
 }
 
 

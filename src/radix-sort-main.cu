@@ -21,8 +21,10 @@ int main(int argc, char **argv){
     const uint32_t bits = 4, max_value = 15, 
     elem_pthread = 4, num_thread = 256;
 
-    bool success = test_kernel1(in_size, bits, max_value, elem_pthread, num_thread);
-    success ? fprintf(stdout, "VALID!\n"): fprintf(stdout, "INVALID!\n");
+    //bool success = test_kernel1(in_size, bits, max_value, elem_pthread, num_thread);
+    //success ? fprintf(stdout, "VALID!\n"): fprintf(stdout, "INVALID!\n");
 
-    return success ? 0 : 1;
+    bool success2 = test_kernel2(in_size, bits, max_value, elem_pthread, num_thread);
+
+    return success2 ? 0 : 1;
 }
