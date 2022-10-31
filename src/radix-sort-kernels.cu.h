@@ -21,9 +21,12 @@ __global__ void compute_histogram(uint32_t* keys, uint32_t* g_hist,
                                       uint32_t in_size,uint32_t hist_size, 
                                       uint32_t it) {
     uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t threadId = threadIdx.x;
+
 
     // Assuming histogram is filled with 0
     extern __shared__ uint32_t histogram[];
+    //printf("threadIdx.x : %d, threadIdx.y: %d, threadIdx.z: %d\n", threadIdx.x, threadIdx.y, threadIdx.z);
 
     // TODO: 
     // - Sort the block locally
@@ -34,16 +37,24 @@ __global__ void compute_histogram(uint32_t* keys, uint32_t* g_hist,
             // get b bits corresponding to the current iteration
             uint32_t rank = 
                 (keys[next] >> (it * bits)) & (hist_size - 1); 
-            atomicAdd(&g_hist[rank], 1); // atomically increase the value of the bucket at index rank
+            atomicAdd(&histogram[rank], 1); // atomically increase the value of the bucket at index rank
+            //if (blockIdx.x == 1)
+            //printf("--- histogram[%d]: %d\n", rank, histogram[rank]);
         }
     }
 
     // copy from shared memory to global memory
-    //__syncthreads();
+    __syncthreads();
     //if (globalId < hist_size) {
-    //    printf("histogram[%d]: %d\n", globalId, histogram[globalId]);
-    //    g_hist[globalId] = histoamgram[globalId]; // copy histogram value to global memory
+    //    g_hist[globalId] = histogram[globalId]; // copy histogram value to global memory
     //}
+    if (threadId < hist_size) {
+       int offset = blockIdx.x * hist_size + threadId; // calculate position in global memory for histogram value
+       //printf("*** histogram[%d]: %d\n", threadId, histogram[threadId]);
+       printf("*** offset: %d, threadId: %d\n", offset, threadId);
+       g_hist[offset] = histogram[threadId]; // copy histogram value to global memory
+    }
+                            
 }
 
 /**
