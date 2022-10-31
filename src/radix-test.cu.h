@@ -86,6 +86,59 @@ bool test_kernel1(const uint32_t in_size,
     return assert_array_equals(h_histogram, d_histogram, number_classes);
 }
 
+bool test_kernel2(const uint32_t in_size, 
+             const uint32_t bits, 
+             const uint32_t max_value, 
+             const uint32_t elem_pthread,
+             const uint32_t num_thread) {
+
+    // 2**bits (give the number of classes)
+    const uint32_t number_classes = 1 << bits; 
+
+    // --- CPU Execution
+    //Allocate and Initialize Host (CPU) data with random values
+    uint32_t* h_keys  = (uint32_t*) malloc(in_size * sizeof(uint32_t));
+    uint32_t* h_histogram  = (uint32_t*) malloc(number_classes * sizeof(uint32_t));
+    randomInitNat(h_keys, in_size, max_value);
+    compute_histogram(h_keys, h_histogram, bits, in_size, 0);
+
+
+    // --- GPU Execution
+    //Allocate and Initialize Device data
+    // TODO: Import CUB library to be able to use cudaSucceded?
+    uint32_t* d_keys_in;
+    uint32_t* d_hist;
+    uint32_t* d_histogram = (uint32_t*) malloc(number_classes * sizeof(uint32_t));
+
+    cudaMalloc((void**) &d_keys_in,  in_size * sizeof(uint32_t));
+    cudaMemcpy(d_keys_in, h_keys, in_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMalloc((void**) &d_hist, number_classes * sizeof(uint32_t));
+
+    //execute first kernel
+    uint32_t num_blocks = 
+        (in_size + num_thread * elem_pthread - 1) / (num_thread * elem_pthread); 
+    size_t hist_size = number_classes * sizeof(uint32_t);
+    compute_histogram<<<num_thread, num_blocks, hist_size>>>(d_keys_in, 
+                                                      d_hist, 
+                                                      bits, 
+                                                      elem_pthread, 
+                                                      in_size, number_classes,0);
+
+    cudaMemcpy(d_histogram, d_hist, number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+    //cudaCheckError();
+
+
+    // transpose and scan the global history arrays
+    
+
+
+    log_vec("host input array", h_keys, in_size);
+    log_vec("host histogram", h_histogram, number_classes);
+    log_vec("device histogram", d_histogram, number_classes);
+    return assert_array_equals(h_histogram, d_histogram, number_classes);
+}
+
 
 
 #endif // !RADIX_TEST

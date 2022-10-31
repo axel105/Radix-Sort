@@ -47,6 +47,31 @@ __global__ void compute_histogram(uint32_t* keys, uint32_t* g_hist,
 }
 
 /**
+ * This kernel transposes a given Matrix in a coalesced fascion
+ * source: https://developer.download.nvidia.com/compute/DevZone/C/html_x64/6_Advanced/transpose/doc/MatrixTranspose.pdf
+*/
+__global__ void transposeCoalesced(float *odata,
+            float *idata, int width, int height)
+{
+  __shared__ float tile[TILE_DIM][TILE_DIM];
+  int xIndex = blockIdx.x*TILE_DIM + threadIdx.x;
+  int yIndex = blockIdx.y*TILE_DIM + threadIdx.y;
+  int index_in = xIndex + (yIndex)*width;
+  xIndex = blockIdx.y * TILE_DIM + threadIdx.x;
+  yIndex = blockIdx.x * TILE_DIM + threadIdx.y;
+  int index_out = xIndex + (yIndex)*height;
+  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
+    tile[threadIdx.y+i][threadIdx.x] =
+      idata[index_in+i*width];
+  }
+  __syncthreads();
+  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
+    odata[index_out+i*height] =
+      tile[threadIdx.x][threadIdx.y+i];
+  }
+}
+
+/**
  * Step 3: This kernel performs a prefix sum on all the histogram tables to compute global digit offsets
 */
 __global__ void prefixSum(int* d_inp) {
@@ -58,6 +83,37 @@ __global__ void prefixSum(int* d_inp) {
 */
 __global__ void scatter(int* d_inp) {
     
+}
+
+/*
+ * This kernel transposes the matrix
+*/
+__global__ void transpose(int* in, int width, int height, int* out){
+    int numPerThread = 4;
+
+    __shared__ double tile[16][16];
+    int i_n = blockIdx.x * tileSize + threadIdx.x;
+    int i_m = blockIdx.y * tileSize + threadIdx.y; // <- threadIdx.y only between 0 and 7
+
+    // Load matrix into tile
+    // Every Thread loads in this case 4 elements into tile.
+    int i;
+    for (i = 0; i < tileSize; i += BLOCK_ROWS){
+        if(i_n < n  && (i_m+i) < m){
+            tile[threadIdx.y+i][threadIdx.x] = matIn[(i_m+i)*n + i_n];
+        }
+    }
+    __syncthreads();
+
+    i_n = blockIdx.y * TILE_DIM + threadIdx.x; 
+    i_m = blockIdx.x * TILE_DIM + threadIdx.y;
+
+    for (i = 0; i < TILE_DIM; i += BLOCK_ROWS){
+        if(i_n < m  && (i_m+i) < n){
+            matTran[(i_m+i)*m + i_n] = tile[threadIdx.x][threadIdx.y + i]; // <- multiply by m, non-squared!
+
+        }
+    }
 }
 
 
