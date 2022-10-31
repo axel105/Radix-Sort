@@ -100,7 +100,7 @@ __global__ void scatter(int* d_inp) {
  * This kernel transposes the matrix
 */
 #define TILE_DIM 16 
-#define BLOCK_ROWS 16
+#define BLOCK_ROWS 4
 __global__ void transposeNaive(uint32_t *odata, uint32_t *idata) {
   int x = blockIdx.x * TILE_DIM + threadIdx.x;
   int y = blockIdx.y * TILE_DIM + threadIdx.y;
