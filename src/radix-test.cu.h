@@ -1,6 +1,7 @@
 #ifndef RADIX_TEST
 #define RADIX_TEST
 #include "radix-sort-cpu.cu.h"
+#include <cub/cub.cuh>
 
 
 void test_compute_histogram_cpu(uint32_t in_size, uint32_t max_value, 
@@ -154,6 +155,95 @@ bool test_kernel2(const uint32_t in_size,
 
 
     log_vec("transposed histogram", res_histogram, histogram_size);
+    return false;
+}
+
+bool test_kernel_to_scan(const uint32_t in_size, 
+             const uint32_t bits, 
+             const uint32_t max_value, 
+             const uint32_t elem_pthread,
+             const uint32_t num_thread) {
+
+    
+    // 2**bits (give the number of classes)
+    const uint32_t number_classes = 1 << bits; 
+
+    uint32_t num_blocks = 
+        (in_size + num_thread * elem_pthread - 1) / (num_thread * elem_pthread); 
+    uint32_t histogram_size = 
+        num_blocks * number_classes + 
+        (number_classes - (num_blocks % number_classes)) * number_classes;
+
+    // --- CPU Execution
+    //Allocate and Initialize Host (CPU) data with random values
+    uint32_t* h_keys  = (uint32_t*) malloc(in_size * sizeof(uint32_t));
+    randomInitNat(h_keys, in_size, max_value);
+
+
+    // --- GPU Execution
+    //Allocate and Initialize Device data
+    // TODO: Import CUB library to be able to use cudaSucceded?
+    uint32_t* d_keys_in;
+    uint32_t* d_hist;
+    uint32_t* d_hist_transpose;
+    uint32_t* res_histogram = (uint32_t*) malloc(histogram_size * sizeof(uint32_t));
+
+    cudaMalloc((void**) &d_keys_in,  in_size * sizeof(uint32_t));
+    cudaMemcpy(d_keys_in, h_keys, in_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
+
+    cudaMalloc((void**) &d_hist, histogram_size * sizeof(uint32_t));
+    cudaMemset((void**) &d_hist, 0, histogram_size * sizeof(uint32_t));
+
+    cudaMalloc((void**) &d_hist_transpose, histogram_size * sizeof(uint32_t));
+
+    //execute first kernel
+
+    size_t hist_size_bytes = number_classes * sizeof(uint32_t);
+    fprintf(stderr, "--- Instanting kernel with num_blocks: %d, num_treads: %d\n", num_blocks, num_thread);
+    compute_histogram<<<num_blocks, num_thread, hist_size_bytes>>>(d_keys_in, 
+                                                      d_hist, 
+                                                      bits, 
+                                                      elem_pthread, 
+                                                      in_size, number_classes,0);
+
+    cudaMemcpy(res_histogram, d_hist, histogram_size * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+
+    //log_vec("device histogram", res_histogram, histogram_size);
+
+    // transpose and scan the global history arrays
+    /*dim3 dimBlock(16,16);
+    dim3 dimGrid(1, num_blocks*elem_pthread);
+    transposeNaive<<<dimGrid,dimBlock>>>(d_hist_transpose, d_hist);
+    */
+
+    transpose<<<num_blocks, 256>>>(d_hist_transpose, d_hist);
+
+    cudaMemcpy(res_histogram, d_hist_transpose, histogram_size*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+
+    log_vec("transposed histogram", res_histogram, histogram_size);
+
+    // scan the transposed kernel
+
+    uint32_t* d_scan;
+    cudaMalloc((void**) &d_scan, histogram_size * sizeof(uint32_t));
+
+    // Determine temporary device storage requirements for inclusive prefix sum | CUB CODE
+    void     *d_temp_storage = NULL;
+    size_t   temp_storage_bytes = 0;
+
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_hist_transpose, d_scan, histogram_size);
+    // Allocate temporary storage for inclusive prefix sum
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+    // Run inclusive prefix sum
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_hist_transpose, d_scan, histogram_size);
+
+    cudaMemcpy(res_histogram, d_scan, histogram_size*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+
+    log_vec("transposed histogram", res_histogram, histogram_size);
+
     return false;
 }
 
