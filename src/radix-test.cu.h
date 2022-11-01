@@ -122,6 +122,7 @@ bool test_kernel2(const uint32_t in_size,
     cudaMemcpy(d_keys_in, h_keys, in_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
 
     cudaMalloc((void**) &d_hist, histogram_size * sizeof(uint32_t));
+    cudaMemset((void**) &d_hist, 0, histogram_size * sizeof(uint32_t));
 
     cudaMalloc((void**) &d_hist_transpose, histogram_size * sizeof(uint32_t));
 
@@ -141,11 +142,14 @@ bool test_kernel2(const uint32_t in_size,
     log_vec("device histogram", res_histogram, histogram_size);
 
     // transpose and scan the global history arrays
-    dim3 dimBlock(16,16);
+    /*dim3 dimBlock(16,16);
     dim3 dimGrid(1, num_blocks*elem_pthread);
     transposeNaive<<<dimGrid,dimBlock>>>(d_hist_transpose, d_hist);
+    */
 
-    cudaMemcpy(res_histogram, d_hist_transpose, num_blocks*number_classes*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    transpose<<<num_blocks, 256>>>(d_hist_transpose, d_hist);
+
+    cudaMemcpy(res_histogram, d_hist_transpose, histogram_size*sizeof(uint32_t), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
 
 

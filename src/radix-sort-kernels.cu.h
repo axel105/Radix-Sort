@@ -110,6 +110,24 @@ __global__ void transposeNaive(uint32_t *odata, uint32_t *idata) {
     odata[x*width + (y+j)] = idata[(y+j)*width + x];
 }
 
+/*
+ * This kernel transposes the matrix 
+*/
+__global__ void transpose(uint32_t *odata, uint32_t *idata) {
+    // no boundary checking needed as we spawn with a block size of 256, and our histogram array size is a multiple of 256
+
+    __shared__ uint32_t tile[256];
+
+    uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t index = 16*(threadIdx.x%16) + (threadIdx.x/16);
+
+    tile[index] = idata[globalId];
+    __syncthreads();
+
+    odata[globalId] = tile[threadIdx.x];
+}
+
+
 
 
 #endif // !RADIX_KERNEL
