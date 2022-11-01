@@ -24,9 +24,9 @@ int main(int argc, char **argv){
     //bool success = test_kernel1(in_size, bits, max_value, elem_pthread, num_thread);
     //success ? fprintf(stdout, "VALID!\n"): fprintf(stdout, "INVALID!\n");
 
-    //bool success2 = test_kernel2(in_size, bits, max_value, elem_pthread, num_thread);
-
-    bool success3 = test_kernel_to_scan(in_size, bits, max_value, elem_pthread, num_thread);
+    // bool success2 = test_kernel2(in_size, bits, max_value, elem_pthread, num_thread);
+    test_scatter(in_size);
 
     return 0;
+    
 }

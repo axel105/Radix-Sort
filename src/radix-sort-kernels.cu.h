@@ -89,12 +89,6 @@ __global__ void prefixSum(int* d_inp) {
     
 }
 
-/**
- * Step 1: This kernel scatters the elements in their intended position
-*/
-__global__ void scatter(int* d_inp) {
-    
-}
 
 /*
  * This kernel transposes the matrix
@@ -128,6 +122,41 @@ __global__ void transpose(uint32_t *odata, uint32_t *idata) {
 }
 
 
+/**
+ * Step 1: This kernel scatters the elements in their intended position
+*/
+__global__ void scatter(uint32_t *keys, uint32_t *output, 
+                        uint32_t *hist, uint32_t bits, 
+                        uint32_t elem_pthread,
+                        uint32_t key_size, uint32_t hist_size, uint32_t it) {
+    uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t threadId = threadIdx.x;
+    if(!globalId){
+        printf("keys GPU: [");
+        for(uint32_t i = 0; i < key_size; ++i){
+            printf("%d, ", keys[i]);
+        }
+        printf("]\n");
+
+        printf("hist GPU: [");
+        for(uint32_t i = 0; i < hist_size; ++i){
+            printf("%d, ", hist[i]);
+        }
+        printf("]\n");
+    }
+
+    for (uint32_t i = 0; i < elem_pthread; ++i) { // handle elements per thread numbner of elements 
+        uint32_t next = globalId * elem_pthread + i; // index of element to be handled
+        if (next < key_size) { // check that we're in bounds
+            // get b bits corresponding to the current iteration
+            uint32_t rank = 
+                (keys[next] >> (it * bits)) & (hist_size - 1); 
+            uint32_t index = atomicAdd(&hist[rank], -1); // atomically decrease the value of the bucket at index rank
+            printf("next: %d, key: %d, rank: %d, index: %d\n", next, keys[next], rank, index);
+            output[index] = keys[next];
+        }
+    }
+}
 
 
 #endif // !RADIX_KERNEL

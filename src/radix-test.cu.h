@@ -248,5 +248,64 @@ bool test_kernel_to_scan(const uint32_t in_size,
 }
 
 
+bool test_scatter(uint32_t key_size) {
+
+    //Data props
+    uint32_t max_value = 16;
+
+    //GPU prop
+    uint32_t block_size = 256, elem_pthread = 4, bits = 4;
+    uint32_t num_blocks = 
+        (key_size + block_size * elem_pthread - 1) / (block_size * elem_pthread); 
+
+    // Allocate memory for GPU
+    uint32_t *d_keys;
+    cudaMalloc((void**) &d_keys, key_size * sizeof(uint32_t));
+
+    uint32_t* d_output;
+    cudaMalloc((void**) &d_output, key_size * sizeof(uint32_t));
+
+    uint32_t* d_hist;
+    uint32_t hist_size = 1 << bits;
+    cudaMalloc((void**) &d_hist, hist_size * sizeof(uint32_t));
+    
+    //******* Initialize memory for GPU
+    //--- KEYS
+    uint32_t *h_keys = (uint32_t*) malloc(sizeof(uint32_t) * key_size);
+    randomInitNat(h_keys, key_size, max_value);
+    cudaMemcpy(d_keys, h_keys, key_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    //--- HIST
+    uint32_t *h_hist = (uint32_t *) calloc(hist_size, sizeof(uint32_t));
+    uint32_t *scan_hist = (uint32_t *) calloc(hist_size, sizeof(uint32_t));
+    compute_histogram(h_keys, h_hist, bits, key_size, 0);
+    // scan histogram
+    memcpy(scan_hist, h_hist, hist_size*sizeof(uint32_t));
+    for(uint32_t i = 1; i < hist_size; i++){
+        scan_hist[i] += scan_hist[i-1]; 
+    }
+    for(uint32_t i = 0; i < hist_size; i++){
+        scan_hist[i] > 0? scan_hist[i] -= 1 : scan_hist[i]; 
+    }
+
+    cudaMemcpy(d_hist, scan_hist, hist_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    //*******
+ 
+    scatter<<<num_blocks, block_size>>>(d_keys, d_output, d_hist, bits, 
+                                        elem_pthread,
+                                        key_size, hist_size, 0);
+
+    uint32_t *output = (uint32_t*) malloc(sizeof(uint32_t) * key_size);
+    cudaMemcpy(output, d_output, key_size*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+
+    log_vec("Input keys", h_keys, key_size);
+    log_vec("Input histogram", h_hist, hist_size);
+    log_vec("Input scanned histogram", scan_hist, hist_size);
+    log_vec("output", output, key_size);
+
+    return false;
+}
+
+
 
 #endif // !RADIX_TEST
