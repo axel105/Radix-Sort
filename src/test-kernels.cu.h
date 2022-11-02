@@ -54,6 +54,19 @@ bool test_scan(kernel_env env){
     
 }
 
+bool test_get_scan_result(kernel_env env) {
+    fprintf(stderr, "*** Get condensed scan result\n");
+    get_condensed_scan(env);
+    log_scan_result(env);
+    return false;
+}
+
+bool test_scatter(kernel_env env) {
+    fprintf(stderr, "*** Scattering\n");
+    scatter(env, 0);
+    log_output_result(env);
+    return false;
+}  
 
 
 #endif //!TEST_KERNELS

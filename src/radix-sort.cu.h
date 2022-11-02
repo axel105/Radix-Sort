@@ -29,11 +29,15 @@ void scan_transposed_histogram(kernel_env env){
     cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, env->d_hist_transpose, env->d_hist_transpose, env->d_hist_size);
 }
 
-//void scatter(kernel_env) {
-//    scatter(env->d_keys, env->output,  
-//
-//
-//}
+void get_condensed_scan(kernel_env env) {
+    array_from_scan<<<1, env->number_classes>>>(env->scan_res, env->d_hist_transpose, env->d_hist_size, env->bits);
+}
+
+void scatter(kernel_env env, int iter) {
+    scatter<<<env->num_blocks, env->block_size>>>(env->d_keys,
+            env->d_output, env->scan_res, env->bits, env->elem_pthread, env->d_keys_size, 
+            env->number_classes, iter);
+}
 
 
 

@@ -1,5 +1,5 @@
 #! /usr/bin/bash
 
 make clean;
-make main && ./main $1 &> log.txt && vim log.txt;
+make main && ./main $1 &> log.txt && less log.txt;
 rm log.txt

@@ -18,6 +18,7 @@ typedef struct Kernel_env{
     uint32_t* d_output;
     uint32_t* d_hist;
     uint32_t* d_hist_transpose;
+    uint32_t* scan_res;
     uint32_t d_keys_size;
     uint32_t d_hist_size;
 

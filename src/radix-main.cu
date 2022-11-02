@@ -28,6 +28,8 @@ int main(int argc, char **argv){
 
     test_transpose(env);
     test_scan(env);
+    test_get_scan_result(env);
+    test_scatter(env);
 
 
     free_env(env);

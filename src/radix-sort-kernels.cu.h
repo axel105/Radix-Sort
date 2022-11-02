@@ -128,9 +128,18 @@ __global__ void scatter(uint32_t *keys, uint32_t *output,
             uint32_t rank = 
                 (keys[next] >> (it * bits)) & (hist_size - 1); 
             int index = atomicAdd(&hist[rank], -1); // atomically decrease the value of the bucket at index rank
-            printf("next: %d, key: %d, rank: %d, index: %d\n", next, keys[next], rank, index);
+            //printf("next: %d, key: %d, rank: %d, index: %d\n", next, keys[next], rank, index);
             output[index] = keys[next];
         }
+    }
+}
+
+__global__ void array_from_scan(uint32_t *odata, uint32_t *idata, int hist_size, int b) {
+    if (threadIdx.x < (1 << b)) {
+        int width = hist_size / (1 << b);
+
+        int index = width * (threadIdx.x + 1) - 1;
+        odata[threadIdx.x] = idata[index];
     }
 }
 

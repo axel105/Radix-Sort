@@ -12,6 +12,16 @@ void d_hist_transpose(kernel_env env, uint32_t *output){
     cudaDeviceSynchronize();
 }
 
+void scan_result(kernel_env env, uint32_t *output){
+    cudaMemcpy(output, env->scan_res, env->number_classes * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+}
+
+void output(kernel_env env, uint32_t *output){
+    cudaMemcpy(output, env->d_output, env->d_keys_size * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+}
+
 void reduce_d_hist(kernel_env env, uint32_t *output){
     d_hist(env, output);
     for(uint32_t i = env->number_classes; i < env->d_hist_size; ++i){
@@ -45,6 +55,18 @@ void log_reduce_d_hist(kernel_env env){
     uint32_t res[env->d_hist_size];
     reduce_d_hist(env, res);
     log_vector(res, env->number_classes);
+}
+
+void log_scan_result(kernel_env env){
+    uint32_t res[env->number_classes];
+    scan_result(env, res);
+    log_vector(res, env->number_classes);
+}
+
+void log_output_result(kernel_env env){
+    uint32_t res[env->d_keys_size];
+    output(env, res);
+    log_vector(res, env->d_keys_size);
 }
 
 void debug_env_gpu_settings(kernel_env env){
@@ -133,6 +155,8 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
     cudaMemcpy(env->d_keys, env->h_keys, env->h_keys_size * sizeof(uint32_t), cudaMemcpyHostToDevice);
     cudaMalloc((void**) &env->d_hist,  env->d_hist_size * sizeof(uint32_t));
     cudaMalloc((void**) &env->d_hist_transpose,  env->d_hist_size * sizeof(uint32_t));
+    cudaMalloc((void**) &env->scan_res,  env->number_classes * sizeof(uint32_t));
+
     cudaDeviceSynchronize();
 
     if(DEBUG) debug_env(env);
