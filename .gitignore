@@ -1,6 +1,11 @@
+## editor files 
+.vscode
+
 *.i
 *.ii
 *.gpu
 *.ptx
 *.cubin
 *.fatbin
+
+*.un~
