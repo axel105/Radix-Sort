@@ -15,7 +15,9 @@ typedef struct Kernel_env{
 
     // GPU data attributes
     uint32_t* d_keys;
+    uint32_t* d_output;
     uint32_t* d_hist;
+    uint32_t* d_hist_transpose;
     uint32_t d_keys_size;
     uint32_t d_hist_size;
 

@@ -1,10 +1,7 @@
 #include <stdio.h>
-#include "utils.cu.h"
-#include "radix-sort-kernels.cu.h"
-#include "radix-test.cu.h"
-#include "radix-sort-cpu.cu.h"
+#include "test-kernels.cu.h"
 #include "types.cu.h"
-#include "kernel_env.cu.h" 
+#include "kernel_env.cu.h"
 
 // Parse the input arguments
 int parse_args(int argc, char **argv){
@@ -24,6 +21,14 @@ int main(int argc, char **argv){
 
     kernel_env env = new_kernel_env(block_size, elem_pthread,
                                     bits, number_keys, max_value);
+
+    if (test_compute_histogram(env))
+        printf("VALID !\n");
+    else printf("INVALID !\n");
+
+    test_transpose(env);
+    test_scan(env);
+
 
     free_env(env);
 
