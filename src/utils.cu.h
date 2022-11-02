@@ -30,10 +30,28 @@ void log_vec(char* name, uint32_t *vec, uint32_t size){
     fprintf(stderr, "%s: [", name);
     for(uint32_t i = 0; i < size; ++i){
         if (i > 0 && i % 16 == 0) fprintf(stderr, "\n");
-        fprintf(stderr, " %d,", vec[i]);
+        fprintf(stderr, "%d,", vec[i]);
     }
     fprintf(stderr, " ]\n");
     
+}
+
+void log_vector(uint32_t *vec, uint32_t size){
+    fprintf(stderr, "[");
+    for(uint32_t i = 0; i < size; ++i){
+        fprintf(stderr, " %d,", vec[i]);
+    }
+    fprintf(stderr, " ]\n");
+}
+
+
+void log_vector_with_break(uint32_t *vec, uint32_t size, uint32_t line_break){
+    fprintf(stderr, "[");
+    for(uint32_t i = 0; i < size; ++i){
+        if (i > 0 && i % line_break == 0) fprintf(stderr, "\n");
+        fprintf(stderr, " %d,", vec[i]);
+    }
+    fprintf(stderr, " ]\n");
 }
 
 #endif // !UTILS
