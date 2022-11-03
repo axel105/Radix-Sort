@@ -122,7 +122,8 @@ __global__ void compute_histogram_local(uint32_t* keys, uint32_t* g_hist,
     // scan the flag array
     for(int rank = 0; rank < hist_size; ++rank){
         //int rank = 1;
-        int index = threadIdx.x + 256 * rank;
+        //int index = threadIdx.x + 256 * rank;
+        int index = threadIdx.x + (256 * rank);
         int thread_data = shared_histogram[threadIdx.x + 256 * rank];
         //printf("---rank: %d, threadIdx.x: %d, index: %d, thread_data: %d\n",
         //        rank, threadIdx.x, index, thread_data);
@@ -145,9 +146,9 @@ __global__ void compute_histogram_local(uint32_t* keys, uint32_t* g_hist,
 
     __syncthreads(); // waiting for the scan
     if (threadIdx.x < hist_size) {
-       int index = (threadIdx.x-1)*256+(256-1);
+       int index = (threadIdx.x)*256+(256-1);
        printf("threadIdx.x: %d, hist_size: %d, shared_histogram[%d]: %d\n", 
-           threadIdx.x-1, hist_size, index, shared_histogram[index]);
+           threadIdx.x, hist_size, index, shared_histogram[index]);
 
        int offset = blockIdx.x * hist_size + threadIdx.x; // calculate position in global memory for histogram value
        g_hist[offset] = shared_histogram[index]; // copy histogram value to global memory
