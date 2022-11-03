@@ -209,6 +209,69 @@ __global__ void array_from_scan(uint32_t *odata, uint32_t *idata, int hist_size,
     }
 }
 
+__global__ void scatter_coalesced(uint32_t *keys, uint32_t *output, 
+                        uint32_t *hist_T_scanned, uint32_t *hist,
+                        uint32_t bits, uint32_t elem_pthread,
+                        uint32_t key_size, uint32_t hist_size, uint32_t it) {
+
+    // scan the histogram and save the data in shared memory
+
+    uint32_t num_buckets = 1 << bits;
+    __shared__ uint32_t local_hist[16];
+    __shared__ uint32_t scanned_hist[16];
+
+    if (threadIdx.x < num_buckets) { // copy histogram corresponding to block into shared memory
+        int tmp = hist[num_buckets * blockIdx.x + threadIdx.x];
+
+        // Specialize BlockScan for a 1D block of 16 threads of type int
+        typedef cub::BlockScan<int, 16> BlockScan;
+
+        // Allocate shared memory for BlockScan
+        __shared__ typename BlockScan::TempStorage temp_storage;
+
+        // Obtain a segment of consecutive items that are blocked across threads
+    
+        // Collectively compute the block-wide exclusive prefix sum
+        BlockScan(temp_storage).ExclusiveSum(tmp, tmp);
+        scanned_hist[threadIdx.x] = tmp;
+    }
+    
+    __syncthreads();
+
+    // assumptions for this to work:
+    // - presorted array on the block level
+    // - scan of the histogram must be exclusive
+    // - scan transpose histogram must be exclusive
+
+    for (int i = 0; i < 4; ++i) { // each thread scatters 4 elements
+        //TODO: read in coalesced fascion (see gilles kernel 1)
+        uint32_t next_local = i * blockDim.x + threadIdx.x; 
+        uint32_t next_global = blockIdx.x * blockDim.x * elem_pthread + next_local;
+
+        if (next_global < key_size) {
+            uint32_t element = keys[next_global];
+            uint32_t rank = (element >> (it * bits)) & (hist_size - 1);
+            uint32_t number_of_elems_in_previous_ranks_locally = scanned_hist[rank];
+            int local_rank_offset = next_local - number_of_elems_in_previous_ranks_locally; // the nth element with this rank in our block
+
+            // arr: [0, 1]  , hit: [1, 1], scan_hist: [0, 1]
+            // index: 1, num_elem_previous_local = 1, local_rank_offset = 0
+
+            //debug
+            if (local_rank_offset < 0) {
+                printf("--------- local rank offset smaller than 0 ---------");
+            } 
+
+            // hist_T_scanned[rank][blockIdx.x]
+            int global_rank_index_start = hist_T_scanned[rank * (hist_size / num_buckets) + blockIdx.x];
+            int global_index = global_rank_index_start + local_rank_offset;
+            output[global_index] = element;
+        }
+    }
+}
+
+
+
 /**
  * This kernel transposes a given Matrix in a coalesced fascion
  * source: https://developer.download.nvidia.com/compute/DevZone/C/html_x64/6_Advanced/transpose/doc/MatrixTranspose.pdf

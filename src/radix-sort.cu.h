@@ -60,6 +60,18 @@ void scan_transposed_histogram(kernel_env env){
     cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, env->d_hist_transpose, env->d_hist_transpose, env->d_hist_size);
 }
 
+void scan_transposed_histogram_exclusive(kernel_env env){
+    // Determine temporary device storage requirements for inclusive prefix sum | CUB CODE
+    void     *d_temp_storage = NULL;
+    size_t   temp_storage_bytes = 0;
+
+    cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, env->d_hist_transpose, env->d_hist_transpose, env->d_hist_size);
+    // Allocate temporary storage for exclusive prefix sum
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+    // Run exclusive prefix sum
+    cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, env->d_hist_transpose, env->d_hist_transpose, env->d_hist_size);
+}
+
 void get_condensed_scan(kernel_env env) {
     array_from_scan<<<1, env->number_classes>>>(env->d_scan_res, env->d_hist_transpose, env->d_hist_size, env->bits);
 }
