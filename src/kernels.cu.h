@@ -104,7 +104,7 @@ __global__ void compute_histogram_local_sort(uint32_t* keys, uint32_t* g_hist,
 
     __syncthreads(); // waiting to flag the entire array
     if(threadId < hist_size){
-        BlockScan(temp_storage).ExclusiveSum(histogram[threadId, thread_data])
+       // BlockScan(temp_storage).ExclusiveSum(histogram[threadId, thread_data]);
     }
 
     __syncthreads(); // waiting for the scan
