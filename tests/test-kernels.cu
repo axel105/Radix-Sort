@@ -41,6 +41,17 @@ bool test_compute_histogram(kernel_env env){
     return true;
 }
 
+bool test_compute_histogram_local(kernel_env env){
+    fprintf(stderr, "*** Testing compute histogram local kernel!\n");
+
+    // compute histogram on GPU
+    compute_histogram_local(env, 0);
+
+    log_d_hist(env);
+    return false;
+
+}
+
 bool test_transpose(kernel_env env){
     fprintf(stderr, "*** Testing histogram tranposition kernel!\n");
     transpose_histogram(env);
@@ -93,7 +104,8 @@ int main(int argc, char **argv){
     kernel_env env = new_kernel_env(block_size, elem_pthread,
                                     bits, number_keys, max_value);
 
-    success |= test(test_compute_histogram, env);
+    //success |= test(test_compute_histogram, env);
+    test_compute_histogram_local(env);
 
     free_env(env);
 

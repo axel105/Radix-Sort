@@ -15,6 +15,15 @@ void compute_histogram(kernel_env env, uint32_t iteration){
                                       iteration);
 }
 
+void compute_histogram_local(kernel_env env, uint32_t iteration){
+    compute_histogram_local
+        <<<env->num_blocks, env->block_size, 
+            env->block_size*env->number_classes*sizeof(int)>>>(env->d_keys, env->d_hist, 
+                                      env->bits, env->elem_pthread, 
+                                      env->d_keys_size, env->number_classes, 
+                                      iteration);
+}
+
 void transpose_histogram(kernel_env env){
     transpose<<<env->num_blocks, env->block_size>>>(env->d_hist_transpose, env->d_hist);
 }

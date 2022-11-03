@@ -5,3 +5,6 @@ main:
 
 test:
 	cd tests && make clean && make && ./test-kernels 10
+
+clean:
+	cd src && make clean && cd .. && cd tests && make clean

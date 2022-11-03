@@ -72,7 +72,7 @@ __global__ void exampleKernel(int* out) {
     }
     
 }
-__global__ void compute_histogram_local_sort(uint32_t* keys, uint32_t* g_hist, 
+__global__ void compute_histogram_local(uint32_t* keys, uint32_t* g_hist, 
                                       uint32_t bits, uint32_t elem_pthread, 
                                       uint32_t in_size,uint32_t hist_size, 
                                       uint32_t it) {
@@ -81,38 +81,79 @@ __global__ void compute_histogram_local_sort(uint32_t* keys, uint32_t* g_hist,
     // - See if we can gain performance by avoiding using atomicAdd
     // - Eventually avoid rewrite if conditions...? 
     uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t threadId = threadIdx.x;
-    uint32_t width = blockDim.x*blockDim.x;
+    uint32_t width = 256;
+    if(globalId == 0){
+        printf("blockIdx.x: %d, blockDim.x: %d\n, threadIdx.x:%d", 
+        blockIdx.x, blockDim.x, threadIdx.x);
+    }
 
     // Specialize BlockScan for a 1D block of 128 threads of type int
-    //typedef cub::BlockScan<int, blockDim.x> BlockScan;
+    typedef cub::BlockScan<int, 128> BlockScan;
+    __shared__ typename BlockScan::TempStorage temp_storage;
 
-    extern __shared__ uint32_t histogram[];
-    //filling histogram with zeroes
-    if(threadId < hist_size){
+    extern __shared__ int shared_histogram[];
+    //Initialize histogram with 0..?
+    if(threadIdx.x < hist_size){
         //TODO 
     }
 
+    // make a flag array from keys
     for (uint32_t i = 0; i < elem_pthread; ++i) { // handle elements per thread numbner of elements 
         uint32_t next = globalId * elem_pthread + i; // index of element to be handled
         if (next < in_size) { // check that we're in bounds
             // get b bits corresponding to the current iteration
             uint32_t rank = (keys[next] >> (it * bits)) & (hist_size - 1); 
-            histogram[rank*width+threadId] = 1;
+            shared_histogram[rank*width+next] = 1;
         }
+    }
+    __syncthreads(); // waiting to flag the entire array
+
+    // debug
+    if(globalId == 1){
+        printf("non scanned hist\n");
+        for(int i = 0; i < 256*16; i++){
+            if(i > 0 && i % 256 == 0) printf("\n");
+            printf("%d, ", shared_histogram[i]);
+        }
+        printf("\n");
     }
 
     __syncthreads(); // waiting to flag the entire array
-    if(threadId < hist_size){
-       // BlockScan(temp_storage).ExclusiveSum(histogram[threadId, thread_data]);
+    // scan the flag array
+    for(int rank = 0; rank < hist_size; ++rank){
+        //int rank = 1;
+        int index = threadIdx.x + 256 * rank;
+        int thread_data = shared_histogram[threadIdx.x + 256 * rank];
+        //printf("---rank: %d, threadIdx.x: %d, index: %d, thread_data: %d\n",
+        //        rank, threadIdx.x, index, thread_data);
+        BlockScan(temp_storage).ExclusiveSum(thread_data, thread_data);
+        //printf("***rank: %d, threadIdx.x: %d, index: %d, thread_data: %d\n",
+        //        rank, threadIdx.x, index, thread_data);
+        shared_histogram[index] = thread_data;
     }
 
     __syncthreads(); // waiting for the scan
-    if (threadId < hist_size) {
-       int offset = blockIdx.x * hist_size + threadId; // calculate position in global memory for histogram value
-       g_hist[offset] = histogram[threadId*width+width-1]; // copy histogram value to global memory
+
+    if(globalId == 1){
+        printf("scanned hist\n");
+        for(int i = 0; i < 256*16; i++){
+            if(i > 0 && i % 256 == 0) printf("\n");
+            printf("%d, ", shared_histogram[i]);
+        }
+
+    }
+
+    __syncthreads(); // waiting for the scan
+    if (threadIdx.x < hist_size) {
+       int index = (threadIdx.x-1)*256+(256-1);
+       printf("threadIdx.x: %d, hist_size: %d, shared_histogram[%d]: %d\n", 
+           threadIdx.x-1, hist_size, index, shared_histogram[index]);
+
+       int offset = blockIdx.x * hist_size + threadIdx.x; // calculate position in global memory for histogram value
+       g_hist[offset] = shared_histogram[index]; // copy histogram value to global memory
     }
 }
+
 
 
 /*
