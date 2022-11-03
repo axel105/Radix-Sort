@@ -9,6 +9,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+#define BYTES_IN_BITS 8
+
 typedef unsigned int uint32_t; 
 
 
@@ -26,14 +28,13 @@ void randomInitNat(uint32_t* data, const uint32_t size, const uint32_t H) {
     }
 }
 
-void log_vec(char* name, uint32_t *vec, uint32_t size){
-    fprintf(stderr, "%s: [", name);
-    for(uint32_t i = 0; i < size; ++i){
-        if (i > 0 && i % 16 == 0) fprintf(stderr, "\n");
-        fprintf(stderr, "%d,", vec[i]);
+// Parse the input arguments
+int parse_args(int argc, char **argv){
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <size-of-array>\n", argv[0]);
+        exit(1);
     }
-    fprintf(stderr, " ]\n");
-    
+    return atoi(argv[1]);
 }
 
 void log_vector(uint32_t *vec, uint32_t size){
@@ -53,5 +54,11 @@ void log_vector_with_break(uint32_t *vec, uint32_t size, uint32_t line_break){
     }
     fprintf(stderr, " ]\n");
 }
+
+template <typename T>
+size_t size_in_bits(){
+    return sizeof(T) * BYTES_IN_BITS;
+}
+
 
 #endif // !UTILS

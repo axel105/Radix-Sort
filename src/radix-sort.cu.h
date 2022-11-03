@@ -1,8 +1,10 @@
 #ifndef RADIX_SORT
 #define RADIX_SORT
+#include "cub/cub.cuh"
 
-#include "kernel_env.cu.h"
+#include "kernels.cu.h"
 #include "types.cu.h"
+#include "kernel_env.cu.h"
 
 void compute_histogram(kernel_env env, uint32_t iteration){
     compute_histogram
@@ -10,7 +12,7 @@ void compute_histogram(kernel_env env, uint32_t iteration){
             env->number_classes * sizeof(uint32_t)>>>(env->d_keys, env->d_hist, 
                                       env->bits, env->elem_pthread, 
                                       env->d_keys_size, env->number_classes, 
-                                      iteration) ;
+                                      iteration);
 }
 
 void transpose_histogram(kernel_env env){
@@ -30,13 +32,24 @@ void scan_transposed_histogram(kernel_env env){
 }
 
 void get_condensed_scan(kernel_env env) {
-    array_from_scan<<<1, env->number_classes>>>(env->scan_res, env->d_hist_transpose, env->d_hist_size, env->bits);
+    array_from_scan<<<1, env->number_classes>>>(env->d_scan_res, env->d_hist_transpose, env->d_hist_size, env->bits);
 }
 
 void scatter(kernel_env env, int iter) {
     scatter<<<env->num_blocks, env->block_size>>>(env->d_keys,
-            env->d_output, env->scan_res, env->bits, env->elem_pthread, env->d_keys_size, 
+            env->d_output, env->d_scan_res, env->bits, env->elem_pthread, env->d_keys_size, 
             env->number_classes, iter);
+}
+
+void radix_sort(kernel_env env){
+    for(uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits){
+        uint32_t iteration = it / env->bits;
+        compute_histogram(env, iteration);
+        transpose_histogram(env);
+        scan_transposed_histogram(env);
+        get_condensed_scan(env);
+        scatter(env, iteration);
+    }
 }
 
 
