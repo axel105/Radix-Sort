@@ -19,6 +19,35 @@ void transpose_histogram(kernel_env env){
     transpose<<<env->num_blocks, env->block_size>>>(env->d_hist_transpose, env->d_hist);
 }
 
+void example() {
+    int block_size = 3;
+    int elem_pthread = 4;
+    int size = block_size * elem_pthread;
+    int array[size];
+    //for(int i = 0; i < size; ++i){
+    //    if(i > 0 && i % 16 == 0) printf("\n");
+    //    array[i] = -99;
+    //    printf("%d, ", array[i]);
+    //}
+    //printf("\n");
+
+    int *d_array;
+    cudaMalloc((void**) &d_array,  size * sizeof(int));
+
+    exampleKernel<<<1, block_size>>>(array);
+
+    cudaMemcpy(array, d_array, size * sizeof(uint32_t), 
+        cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+
+    for(int i = 0; i < size; ++i){
+        if(i > 0 && i % 16 == 0) printf("\n");
+        printf("%d, ", array[i]);
+    }
+
+    printf("\n");
+}
+
 void scan_transposed_histogram(kernel_env env){
     // Determine temporary device storage requirements for inclusive prefix sum | CUB CODE
     void     *d_temp_storage = NULL;
