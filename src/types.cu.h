@@ -2,10 +2,10 @@
 #define TYPE
 #define DEBUG 1
 
-typedef unsigned int uint32_t; 
-typedef unsigned short uint16_t; 
+typedef unsigned int uint32_t;
+typedef unsigned short uint16_t;
 
-typedef struct Kernel_env{
+typedef struct Kernel_env {
     // general data attributes
     uint32_t number_classes;
     uint32_t h_keys_size;
@@ -29,7 +29,7 @@ typedef struct Kernel_env{
     uint32_t block_size;
     uint32_t elem_pthread;
     uint32_t bits;
-}*kernel_env;
+} * kernel_env;
 
 // -------------- kernel_env functions -------------------
 /**
@@ -42,8 +42,8 @@ typedef struct Kernel_env{
  * @max_value: maximum value a key can have
  */
 kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
-                            uint32_t bits, uint32_t number_keys,
-                            uint32_t max_value);
+                          uint32_t bits, uint32_t number_keys,
+                          uint32_t max_value);
 
 void free_env(kernel_env env);
 
@@ -56,9 +56,9 @@ uint32_t d_hist_size(kernel_env env);
 
 uint32_t d_keys_size(kernel_env env);
 
-uint32_t* d_keys(kernel_env env);
+uint32_t *d_keys(kernel_env env);
 
-uint32_t* d_hist(kernel_env env);
+uint32_t *d_hist(kernel_env env);
 
 uint32_t bits(kernel_env env);
 
@@ -98,5 +98,4 @@ void debug_env_data(kernel_env env);
 
 void debug_env(kernel_env env);
 
-
-#endif //TYPE
+#endif  // TYPE
