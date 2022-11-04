@@ -95,11 +95,11 @@ __global__ void exampleKernel(int* out) {
 // - See if we can gain performance by avoiding using atomicAdd
 // - Eventually avoid rewrite if conditions...? 
 __global__ void compute_histogram_sort(uint32_t* d_keys, uint32_t* g_hist, 
+                                      uint32_t *g_scan_hist,
                                       uint32_t bits, uint32_t elem_pthread, 
                                       uint32_t d_keys_size, uint32_t num_classes, 
                                       uint32_t it) {
-    //printf("ThreadIdx.x %d\n", threadIdx.x);
-    uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    //uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t width = blockDim.x * elem_pthread;
     uint32_t size = blockDim.x * elem_pthread * num_classes;
 
@@ -109,10 +109,9 @@ __global__ void compute_histogram_sort(uint32_t* d_keys, uint32_t* g_hist,
     extern __shared__ uint16_t shared_data[];
     __shared__ uint32_t shared_keys[256 * 4];
     __shared__ uint32_t shared_sorted_keys[256 * 4];
-    //Initialize histogram with 0..?
-    //if(threadIdx.x < hist_size){
-    //    //TODO 
-    //}
+    __shared__ uint32_t shared_histogram[16];
+    __shared__ uint32_t shared_scan_hist[16];
+    //Initialize shared_data with 0..?
 
     // make a flag array from keys
     //TODO: change thread acess to keys to be more coalesced
@@ -161,23 +160,23 @@ __global__ void compute_histogram_sort(uint32_t* d_keys, uint32_t* g_hist,
             shared_keys[block_index] = key; // save keys in shared mem
         }
     }
-    __syncthreads(); // waiting to flag the entire array
+    //__syncthreads(); // waiting to flag the entire array
 
     // debug
-    if(globalId == 0){
-        printf("non scanned hist\n");
-        for(int i = 0; i < size; i++){
-            if(i > 0 && i % width == 0) printf("\n");
-            printf("%d, ", shared_data[i]);
-        }
-        printf("\n\n");
-    }
+    //if(globalId == 0){
+    //    printf("non scanned hist\n");
+    //    for(int i = 0; i < size; i++){
+    //        if(i > 0 && i % width == 0) printf("\n");
+    //        printf("%d, ", shared_data[i]);
+    //    }
+    //    printf("\n\n");
+    //}
 
     __syncthreads(); // waiting to flag the entire array
     // scan the flag array
     // Specialize BlockScan for a 1D block of 128 threads of type int
-    typedef cub::BlockScan<uint16_t, 256> BlockScan;
-    __shared__ typename BlockScan::TempStorage temp_storage;
+    typedef cub::BlockScan<uint16_t, 256> BlockScan16;
+    __shared__ typename BlockScan16::TempStorage temp_storage16;
     // TODO: make thread process 4 elements, thread_data => thread_data[4]
     for(int rank = 0; rank < num_classes; ++rank){
         uint16_t thread_data[4];
@@ -188,7 +187,7 @@ __global__ void compute_histogram_sort(uint32_t* d_keys, uint32_t* g_hist,
             thread_data[i] = shared_data[index];
         }
         //scan
-        BlockScan(temp_storage).InclusiveSum(thread_data, thread_data);
+        BlockScan16(temp_storage16).InclusiveSum(thread_data, thread_data);
         // write back in shared_memory
         for(int i = 0; i < elem_pthread; ++i){
             int index = (rank * width) + threadIdx.x * elem_pthread + i;
@@ -197,85 +196,96 @@ __global__ void compute_histogram_sort(uint32_t* d_keys, uint32_t* g_hist,
     }
 
     // debug
-    __syncthreads(); // waiting to flag the entire array
-    if(globalId == 0){
-        printf("scanned hist\n");
-        for(int i = 0; i < size; i++){
-            if(i > 0 && i % width == 0) printf("\n");
-            printf("%d, ", shared_data[i]);
-        }
-        printf("\n\n");
-    }
-//
-//
-//    //__syncthreads(); // waiting for the debug
-//    // sort the array localy
-//    // [4, 3, 4, 3, 4]
-//    // c_x [......] -> (0) number_element of rank x
-//    // c_x [......] -> (1) 
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // c_x [......]
-//    // sort[......]
-//    //
-//    // 1. exclusive scan of histogram (last row of scan_hist)
-//    // 2. (scan_flag[rank][index]-1) + scan_hist[rank]
-//  
-//      
-        if(threadIdx.x < num_classes){
-            int last_row = threadIdx.x * (width-1);
-            uint16_t thread_data = shared_data[last_row];
-        }
+    //__syncthreads(); // waiting to flag the entire array
+    //if(globalId == 0){
+    //    printf("scanned hist\n");
+    //    for(int i = 0; i < size; i++){
+    //        if(i > 0 && i % width == 0) printf("\n");
+    //        printf("%d, ", shared_data[i]);
+    //    }
+    //    printf("\n\n");
+    //}
 
-        BlockScan(temp_storage).InclusiveSum(thread_data, thread_data);
 
-        // write back in shared_memory
-        for(int i = 0; i < elem_pthread; ++i){
-            int index = (rank * width) + threadIdx.x * elem_pthread + i;
-            shared_data[index] = thread_data[i];
+    __syncthreads(); // waiting for the debug
+    // sort the array localy
+    // [4, 3, 4, 3, 4]
+    // c_x [......] -> (0) number_element of rank x
+    // c_x [......] -> (1) 
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // c_x [......]
+    // sort[......]
+    //
+    // 1. exclusive scan of histogram (last row of scan_hist)
+    // 2. (scan_flag[rank][index]-1) + scan_hist[rank]
+    typedef cub::BlockScan<uint32_t, 256> BlockScan32;
+    __shared__ typename BlockScan32::TempStorage temp_storage32;
+    if(threadIdx.x < num_classes){
+        int last_row = (threadIdx.x * width) + (width - 1);
+        uint32_t thread_data = shared_data[last_row];
+        shared_histogram[threadIdx.x] = thread_data; // saving histogram 
+        BlockScan32(temp_storage32).ExclusiveSum(thread_data, thread_data);
+        shared_scan_hist[threadIdx.x] = thread_data;
+    }
+
+    //if(globalId == 0){
+    //    printf("hist\n");
+    //    for(int i = 0; i < num_classes; i++){
+    //        printf("%d, ", shared_histogram[i]);
+    //    }
+    //    printf("\n\n");
+
+    //    printf("scan hist\n");
+    //    for(int i = 0; i < num_classes; i++){
+    //        printf("%d, ", shared_scan_hist[i]);
+    //    }
+    //    printf("\n\n");
+    //}
+    __syncthreads(); // waiting for the scan hist
+    // sort array keys locally 
+    for(int i = 0; i < elem_pthread; ++i){
+        uint32_t index_key = threadIdx.x + i * blockDim.x;
+        uint32_t key = shared_keys[index_key]; // save keys in shared mem
+        uint32_t rank = (key >> nth_bits) & class_range; 
+        uint32_t number_elem_previous_rank = shared_scan_hist[rank];
+        uint32_t nth_element = shared_data[rank * width + index_key];
+        uint32_t sorted_position = nth_element-1 + number_elem_previous_rank;
+        shared_sorted_keys[sorted_position] = key;
+    }
+    
+    __syncthreads(); // waiting for the scan hist
+
+    // TODO:  write to global memroy
+    // - scan histogram
+    // - sorted array
+    // - histogram 
+    for (uint32_t i = 0; i < elem_pthread; ++i) { // handle elements per thread numbner of elements 
+        uint32_t block_offset = blockIdx.x * blockDim.x * elem_pthread;
+        uint32_t block_index = blockDim.x * i + threadIdx.x;
+        uint32_t index = block_offset + block_index;
+        if (index < d_keys_size) { // check that we're in bounds
+            d_keys[index] = shared_sorted_keys[block_index]; // save keys in shared mem
         }
     }
-//
-//    // sort array keys locally 
-//    //for (uint32_t i = 0; i < elem_pthread; ++i) { // handle elements per thread numbner of elements 
-//    //    uint32_t next = globalId * elem_pthread + i; // index of element to be handled
-//    //    if (next < in_size) { // check that we're in bounds
-//    //        // get b bits corresponding to the current iteration
-//    //        uint32_t rank = (keys[next] >> (it * bits)) & (hist_size - 1);
-//    //        uint32_t number_elements = shared_histogram[rank*256+(256-1)]; //TODO
-//    //        uint32_t x = shared_histogram[(rank+1) * 256 + (256-1)] //check that rank is < hist_size ???
-//    //        uint32_t start_position = x - number_elements;
-//    //        shared_histogram[rank*width+next] = 1;
-//    //    }
-//    //}
-//    __syncthreads(); // waiting to flag the entire array
-//
-//
-//    // TODO:  write to global memroy
-//    // - scan histogram
-//    // - sorted array
-//    // - histogram 
-//    if (threadIdx.x < hist_size) {
-//       int index = (threadIdx.x)*256+(256-1);
-//
-//       int offset = blockIdx.x * hist_size + threadIdx.x; // calculate position in global memory for histogram value
-//       g_hist[offset] = shared_histogram[index]; // copy histogram value to global memory
-//
-//       printf("\n*** offset: %d, threadIdx.x: %d, hist_size: %d, shared_histogram[%d]: %d\n", 
-//           offset, threadIdx.x, hist_size, index, shared_histogram[index]);
-//    }
+    // copy histogram to global memory
+    if (threadIdx.x < num_classes) {
+       int offset = blockIdx.x * num_classes + threadIdx.x; // calculate position in global memory for histogram value
+       g_hist[offset] = shared_histogram[threadIdx.x]; // copy histogram value to global memory
+       g_scan_hist[offset] = shared_scan_hist[threadIdx.x];
+    }
 }
 
 

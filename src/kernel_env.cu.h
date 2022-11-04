@@ -46,6 +46,7 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
         cudaMemcpyHostToDevice));
 
     cudaSucceeded(cudaMalloc((void**) &env->d_hist,  env->d_hist_size * sizeof(uint32_t)));
+    cudaSucceeded(cudaMalloc((void**) &env->d_hist_scan,  env->d_hist_size * sizeof(uint32_t)));
 
     cudaSucceeded(cudaMalloc((void**) &env->d_output,  env->d_keys_size * sizeof(uint32_t)));
     cudaSucceeded(cudaMalloc((void**) &env->d_hist_transpose,  env->d_hist_size * sizeof(uint32_t)));
@@ -179,6 +180,13 @@ void log_d_keys(kernel_env env){
 void log_d_hist(kernel_env env){
     uint32_t res[env->d_hist_size];
     cudaMemcpy(res, env->d_hist, env->d_hist_size * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+    log_vector_with_break(res, env->d_hist_size, env->number_classes);
+}
+
+void log_d_hist_scan(kernel_env env){
+    uint32_t res[env->d_hist_size];
+    cudaMemcpy(res, env->d_hist_scan, env->d_hist_size * sizeof(uint32_t), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
     log_vector_with_break(res, env->d_hist_size, env->number_classes);
 }
