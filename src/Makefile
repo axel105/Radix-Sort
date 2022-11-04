@@ -4,7 +4,7 @@ EXEC = main
 
 all: $(EXEC)
 
-$(EXEC): main.cu types.cu.h kernel_env.cu.h radix-sort.cu.h kernels.cu.h
+$(EXEC): main.cu types.cu.h kernel_env.cu.h radix-sort.cu.h kernels.cu.h helper.cu.h
 	nvcc -I$(CUB)/cub -o $@ $< 
 
 .PHONY: clean

@@ -47,7 +47,7 @@ bool test_compute_histogram_local(kernel_env env){
     // compute histogram on GPU
     compute_histogram_local(env, 0);
 
-    log_d_hist(env);
+    //log_d_hist(env);
     return false;
 
 }

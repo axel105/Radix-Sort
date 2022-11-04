@@ -3,6 +3,7 @@
 #define DEBUG 1
 
 typedef unsigned int uint32_t; 
+typedef unsigned short uint16_t; 
 
 typedef struct Kernel_env{
     // general data attributes

@@ -8,6 +8,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <stdbool.h>
+#include <string.h>
+#include "types.cu.h"
 
 #define BYTES_IN_BITS 8
 
@@ -45,6 +47,9 @@ void log_vector(uint32_t *vec, uint32_t size){
     fprintf(stderr, " ]\n");
 }
 
+void debug(const char *msg){
+    if(DEBUG) fprintf(stderr, "%s\n", msg);
+}
 
 void log_vector_with_break(uint32_t *vec, uint32_t size, uint32_t line_break){
     fprintf(stderr, "[");

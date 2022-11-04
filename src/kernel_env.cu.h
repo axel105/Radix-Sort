@@ -2,6 +2,7 @@
 #define KERNEL_ENV
 #include "types.cu.h"
 #include "utils.cu.h"
+#include "helper.cu.h"
 
 //TODO: FIX COPY function
 
@@ -35,20 +36,23 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
 
     // *** Allocate memory and initialize the data
     // - Allocate and init on host (CPU)
-    env->h_keys = (uint32_t*) malloc(env->h_keys_size * sizeof(uint32_t));
-    env->h_hist = (uint32_t*) malloc(env->h_hist_size * sizeof(uint32_t));
+    env->h_keys = (uint32_t*) calloc(env->h_keys_size, sizeof(uint32_t));
+    env->h_hist = (uint32_t*) calloc(env->h_hist_size, sizeof(uint32_t));
     randomInitNat(env->h_keys, env->h_keys_size, env->max_value);
 
     // - Allocate and init on device (GPU)
-    cudaMalloc((void**) &env->d_keys,  env->d_keys_size * sizeof(uint32_t));
-    cudaMalloc((void**) &env->d_output,  env->d_keys_size * sizeof(uint32_t));
-    cudaMemcpy(env->d_keys, env->h_keys, env->h_keys_size * sizeof(uint32_t), 
-        cudaMemcpyHostToDevice);
-    cudaMalloc((void**) &env->d_hist,  env->d_hist_size * sizeof(uint32_t));
-    cudaMalloc((void**) &env->d_hist_transpose,  env->d_hist_size * sizeof(uint32_t));
-    cudaMalloc((void**) &env->d_scan_res,  env->number_classes * sizeof(uint32_t));
+    cudaSucceeded(cudaMalloc((void**) &env->d_keys,  env->d_keys_size * sizeof(uint32_t)));
+    cudaSucceeded(cudaMemcpy(env->d_keys, env->h_keys, env->h_keys_size * sizeof(uint32_t), 
+        cudaMemcpyHostToDevice));
+
+    cudaSucceeded(cudaMalloc((void**) &env->d_hist,  env->d_hist_size * sizeof(uint32_t)));
+
+    cudaSucceeded(cudaMalloc((void**) &env->d_output,  env->d_keys_size * sizeof(uint32_t)));
+    cudaSucceeded(cudaMalloc((void**) &env->d_hist_transpose,  env->d_hist_size * sizeof(uint32_t)));
+    cudaSucceeded(cudaMalloc((void**) &env->d_scan_res,  env->number_classes * sizeof(uint32_t)));
 
     cudaDeviceSynchronize();
+    cudaCheckError();
 
     if(DEBUG) debug_env(env);
 
@@ -92,11 +96,13 @@ kernel_env copy(kernel_env env){
     memcpy(env_copy->h_hist, env->h_hist, env->h_hist_size * sizeof(uint32_t));
 
     // - Allocate and init on device (GPU)
-    cudaMalloc((void**) &env_copy->d_keys,  env->d_keys_size * sizeof(uint32_t));
-    cudaMemcpy(env_copy->d_keys, env->d_keys, env->d_keys_size * sizeof(uint32_t), cudaMemcpyDeviceToDevice);
-    cudaMalloc((void**) &env_copy->d_hist,  env->d_hist_size * sizeof(uint32_t));
-    cudaMemcpy(env_copy->d_hist, env->d_hist, env->d_hist_size * sizeof(uint32_t), cudaMemcpyDeviceToDevice);
+    cudaSucceeded(cudaMalloc((void**) &env_copy->d_keys,  env->d_keys_size * sizeof(uint32_t)));
+    cudaSucceeded(cudaMemcpy(env_copy->d_keys, env->d_keys, env->d_keys_size * sizeof(uint32_t), cudaMemcpyDeviceToDevice));
+    cudaSucceeded(cudaMalloc((void**) &env_copy->d_hist,  env->d_hist_size * sizeof(uint32_t)));
+    cudaSucceeded(cudaMemcpy(env_copy->d_hist, env->d_hist, env->d_hist_size * sizeof(uint32_t), cudaMemcpyDeviceToDevice));
     cudaDeviceSynchronize();
+
+    cudaCheckError();
 
     return env_copy;
 

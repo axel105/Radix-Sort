@@ -5,6 +5,9 @@
 #include "kernels.cu.h"
 #include "types.cu.h"
 #include "kernel_env.cu.h"
+#include "helper.cu.h"
+#include "utils.cu.h"
+
 
 void compute_histogram(kernel_env env, uint32_t iteration){
     compute_histogram
@@ -16,12 +19,20 @@ void compute_histogram(kernel_env env, uint32_t iteration){
 }
 
 void compute_histogram_local(kernel_env env, uint32_t iteration){
-    compute_histogram_local
-        <<<env->num_blocks, env->block_size, 
-            env->block_size*env->number_classes*sizeof(int)>>>(env->d_keys, env->d_hist, 
-                                      env->bits, env->elem_pthread, 
-                                      env->d_keys_size, env->number_classes, 
-                                      iteration);
+    debug("--- Calling histogram local kernel");
+    size_t shared_memory_size = 
+        env->block_size * 
+        env->number_classes * 
+        env->elem_pthread *  sizeof(uint16_t);
+    fprintf(stderr, "shared_memeory_size: %d\n", shared_memory_size);
+        
+    compute_histogram_sort<<<env->num_blocks, env->block_size, 
+        shared_memory_size>>>(env->d_keys, env->d_hist, 
+                                env->bits, env->elem_pthread, 
+                                env->d_keys_size, env->number_classes, 
+                                iteration);
+
+    cudaCheckError();
 }
 
 void transpose_histogram(kernel_env env){
