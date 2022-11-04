@@ -109,6 +109,8 @@ int main(int argc, char **argv){
     log_d_keys(env);
     //log_d_hist(env);
     //log_d_hist_scan(env);
+    cudaDeviceSynchronize();
+    cudaCheckError();
 
     free_env(env);
 

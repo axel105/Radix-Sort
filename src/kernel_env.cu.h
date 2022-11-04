@@ -174,7 +174,7 @@ void reduce_d_hist(kernel_env env, uint32_t *output){
 void log_d_keys(kernel_env env){
     uint32_t size = env->d_keys_size, res[size];
     d_keys(env, res);
-    log_vector(res, size);
+    log_vector_with_break(res, size, 32);
 }
 
 void log_d_hist(kernel_env env){

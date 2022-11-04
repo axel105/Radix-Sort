@@ -1,8 +1,8 @@
 CUB = ../cub-code/cub-1.8.0
 RADIX = ../src
 
-CFLAGS = -I$(CUB)/cub -I$(RADIX)
-OPT_FLAGS = -O3
+CFLAGS = -I$(CUB)/cub -I$(RADIX) -g
+OPT_FLAGS = -O0
 
 TEST = test-kernels
 
