@@ -8,16 +8,17 @@ bits = 4
 --------------------
 --- Data Props   ---
 number classes = 16
-number of keys = 10
+number of keys = 33
 maximum value = 16
-d_keys_size = 10
+d_keys_size = 33
 d_hist_size = 256
 ------------------
 ---    Data    ---
 host input array:
-[ 7, 6, 9, 3, 1, 15, 10, 12, 9, 13, ]
+[ 7, 6, 9, 3, 1, 15, 10, 12, 9, 13, 10, 11, 2, 11, 3, 6, 12, 2, 4, 8, 11, 8, 7, 13, 6, 10, 14, 3, 3, 15, 9, 10, 6, ]
 device input array:
-[ 7, 6, 9, 3, 1, 15, 10, 12, 9, 13, ]
+[ 7, 6, 9, 3, 1, 15, 10, 12, 9, 13, 10, 11, 2, 11, 3, 6, 12, 2, 4, 8, 11, 8, 7, 13, 6, 10, 14, 3, 3, 15, 9, 10,
+ 6, ]
 device hist:
 [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -40,4 +41,6 @@ device hist:
 *** Testing compute histogram local kernel!
 --- Calling histogram local kernel
 shared_memeory_size: 32768
-Cleaning kernel env: 0x1f02e10!
+[ 1, 2, 2, 3, 3, 3, 3, 4, 6, 6, 6, 0, 7, 7, 8, 8, 9, 9, 9, 10, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14, 15,
+ 0, ]
+Cleaning kernel env: 0x5644ad5fe9d0!

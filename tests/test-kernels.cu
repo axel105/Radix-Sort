@@ -106,8 +106,9 @@ int main(int argc, char **argv){
 
     //success |= test(test_compute_histogram, env);
     test_compute_histogram_local(env);
-    log_d_hist(env);
-    log_d_hist_scan(env);
+    log_d_keys(env);
+    //log_d_hist(env);
+    //log_d_hist_scan(env);
 
     free_env(env);
 

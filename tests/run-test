@@ -1,5 +1,4 @@
 #! /usr/bin/bash
 
 make clean;
-make && time ./test-kernels 10 &> log.txt && vim log.txt;
-rm -rf log.txt
+make -j 48 && ./test-kernels $1 &> log.txt;
