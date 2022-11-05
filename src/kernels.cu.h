@@ -449,9 +449,9 @@ __global__ void array_from_scan(uint32_t *odata, uint32_t *idata, int hist_size,
 
 __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
                                   uint32_t *hist_T_scanned, uint32_t *hist,
-                                  uint32_t bits, uint32_t elem_pthread,
-                                  uint32_t key_size, uint32_t hist_size,
-                                  uint32_t it) {
+                                  uint32_t *hist_rowwise_scanned, uint32_t bits,
+                                  uint32_t elem_pthread, uint32_t key_size,
+                                  uint32_t hist_size, uint32_t it) {
     // scan the histogram and save the data in shared memory
 
     uint32_t num_buckets = 1 << bits;
@@ -460,19 +460,9 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
 
     if (threadIdx.x < num_buckets) {  // copy histogram corresponding to block
                                       // into shared memory
-        int tmp = hist[num_buckets * blockIdx.x + threadIdx.x];
-
-        // Specialize BlockScan for a 1D block of 16 threads of type int
-        typedef cub::BlockScan<int, 16> BlockScan;
-
-        // Allocate shared memory for BlockScan
-        __shared__ typename BlockScan::TempStorage temp_storage;
-
-        // Obtain a segment of consecutive items that are blocked across threads
-
-        // Collectively compute the block-wide exclusive prefix sum
-        BlockScan(temp_storage).ExclusiveSum(tmp, tmp);
-        scanned_hist[threadIdx.x] = tmp;
+        local_hist[threadIdx.x] = hist[num_buckets * blockIdx.x + threadIdx.x];
+        scanned_hist[threadIdx.x] =
+            hist_rowwise_scanned[num_buckets * blockIdx.x + threadIdx.x];
     }
 
     __syncthreads();
@@ -490,7 +480,7 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
 
         if (next_global < key_size) {
             uint32_t element = keys[next_global];
-            uint32_t rank = (element >> (it * bits)) & (hist_size - 1);
+            uint32_t rank = (element >> (it * bits)) & (num_buckets - 1);
             uint32_t number_of_elems_in_previous_ranks_locally =
                 scanned_hist[rank];
             int local_rank_offset =
@@ -507,6 +497,13 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
                 printf("--------- local rank offset smaller than 0 ---------");
             }
 
+            /*
+            printf(
+                "Next local: %d, Next global: %d, element: %d, rank: %d, "
+                "number of elems in previous rank: %d, local rank offset: %d\n",
+                next_local, next_global, element, rank,
+                number_of_elems_in_previous_ranks_locally, local_rank_offset);
+            */
             // hist_T_scanned[rank][blockIdx.x]
             int global_rank_index_start =
                 hist_T_scanned[rank * (hist_size / num_buckets) + blockIdx.x];
@@ -515,31 +512,4 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
         }
     }
 }
-
-/**
- * This kernel transposes a given Matrix in a coalesced fascion
- * source:
- * https://developer.download.nvidia.com/compute/DevZone/C/html_x64/6_Advanced/transpose/doc/MatrixTranspose.pdf
- */
-//__global__ void transposeCoalesced(float *odata,
-//            float *idata, int width, int height)
-//{
-//  __shared__ float tile[TILE_DIM][TILE_DIM];
-//  int xIndex = blockIdx.x*TILE_DIM + threadIdx.x;
-//  int yIndex = blockIdx.y*TILE_DIM + threadIdx.y;
-//  int index_in = xIndex + (yIndex)*width;
-//  xIndex = blockIdx.y * TILE_DIM + threadIdx.x;
-//  yIndex = blockIdx.x * TILE_DIM + threadIdx.y;
-//  int index_out = xIndex + (yIndex)*height;
-//  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
-//    tile[threadIdx.y+i][threadIdx.x] =
-//      idata[index_in+i*width];
-//  }
-//  __syncthreads();
-//  for (int i=0; i<TILE_DIM; i+=BLOCK_ROWS) {
-//    odata[index_out+i*height] =
-//      tile[threadIdx.x][threadIdx.y+i];
-//  }
-//}
-
 #endif  // !RADIX_KERNEL

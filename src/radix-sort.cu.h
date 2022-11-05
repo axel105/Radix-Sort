@@ -16,10 +16,8 @@ void compute_histogram(kernel_env env, uint32_t iteration) {
 }
 
 void compute_histogram_local(kernel_env env, uint32_t iteration) {
-    debug("--- Calling histogram local kernel");
     size_t shared_memory_size = env->block_size * env->number_classes *
                                 env->elem_pthread * sizeof(uint16_t);
-    fprintf(stderr, "shared_memeory_size: %d\n", shared_memory_size);
 
     compute_histogram_sort<<<env->num_blocks, env->block_size,
                              shared_memory_size>>>(
@@ -107,14 +105,25 @@ void scatter(kernel_env env, int iter) {
         env->elem_pthread, env->d_keys_size, env->number_classes, iter);
 }
 
+void scatter_coalesced(kernel_env env, int iter) {
+    scatter_coalesced<<<env->num_blocks, env->block_size>>>(
+        env->d_keys, env->d_output, env->d_hist_transpose, env->d_hist,
+        env->d_hist_scan, env->bits, env->elem_pthread, env->d_keys_size,
+        env->d_hist_size, iter);
+}
+
 void radix_sort(kernel_env env) {
-    for (uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits) {
-        uint32_t iteration = it / env->bits;
-        compute_histogram(env, iteration);
+    // for (uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits) {
+    // uint32_t iteration = it / env->bits;
+    for (uint32_t iteration = 0; iteration < 2; iteration++) {
+        compute_histogram_local(env, iteration);
+        cudaDeviceSynchronize();
         transpose_histogram(env);
-        scan_transposed_histogram(env);
-        get_condensed_scan(env);
-        scatter(env, iteration);
+        cudaDeviceSynchronize();
+        scan_transposed_histogram_exclusive(env);
+        cudaDeviceSynchronize();
+        scatter_coalesced(env, iteration);
+        cudaDeviceSynchronize();
     }
 }
 

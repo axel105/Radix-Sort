@@ -1,6 +1,7 @@
 #ifndef TEST_UTILS
 #define TEST_UTILS
 #include <stdbool.h>
+#include <stdio.h>
 #include "types.cu.h"
 
 bool equal(uint32_t* vec1, uint32_t* vec2, const uint32_t size) {
@@ -8,6 +9,18 @@ bool equal(uint32_t* vec1, uint32_t* vec2, const uint32_t size) {
         if (vec1[i] != vec2[i]) return false;
     }
     return true;
+}
+
+bool test(bool (*test_function)(kernel_env), kernel_env env) {
+    bool success = test_function(env);
+    success ? fprintf(stderr, "Test Passed!\n")
+            : fprintf(stderr, "Test FAILED!\n");
+    return success;
+}
+
+void print_test_result(bool success) {
+    success ? fprintf(stderr, "All test passed!\n")
+            : fprintf(stderr, "Tests failed!\n");
 }
 
 #endif  // !TEST_UTILS

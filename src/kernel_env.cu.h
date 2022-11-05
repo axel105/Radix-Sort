@@ -46,6 +46,11 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
 
     cudaSucceeded(
         cudaMalloc((void **)&env->d_hist, env->d_hist_size * sizeof(uint32_t)));
+    uint32_t *zeros = (uint32_t *)calloc(env->d_hist_size, sizeof(uint32_t));
+    cudaSucceeded(cudaMemcpy(env->d_hist, zeros,
+                             env->d_hist_size * sizeof(uint32_t),
+                             cudaMemcpyHostToDevice));
+
     cudaSucceeded(cudaMalloc((void **)&env->d_hist_scan,
                              env->d_hist_size * sizeof(uint32_t)));
 
@@ -58,6 +63,7 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
 
     cudaDeviceSynchronize();
     cudaCheckError();
+    free(zeros);
 
     if (DEBUG) debug_env(env);
 
@@ -210,7 +216,7 @@ void log_scan_result(kernel_env env) {
 void log_output_result(kernel_env env) {
     uint32_t res[env->d_keys_size];
     d_output(env, res);
-    log_vector(res, env->d_keys_size);
+    log_vector_with_break(res, env->d_keys_size, 32);
 }
 
 void debug_env_gpu_settings(kernel_env env) {

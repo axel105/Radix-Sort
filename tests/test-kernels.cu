@@ -42,13 +42,33 @@ bool test_compute_histogram(kernel_env env) {
 }
 
 bool test_compute_histogram_local(kernel_env env) {
-    fprintf(stderr, "*** Testing compute histogram local kernel!\n");
+    debug("*** Testing compute histogram local kernel!");
+    for (uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits) {
+        uint32_t iteration = it / env->bits;
+        // compute histogram on CPU
+        compute_histogram(env->h_keys, env->h_hist, env->bits, env->h_keys_size,
+                          iteration);
 
-    // compute histogram on GPU
-    compute_histogram_local(env, 0);
+        // compute histogram on GPU
+        compute_histogram_local(env, iteration);
+        uint32_t hist_size = d_hist_size(env), histogram[hist_size];
+        reduce_d_hist(env, histogram);
 
+        if (!equal(env->h_hist, histogram, env->number_classes)) {
+            if (DEBUG) {
+                fprintf(stderr, "Failure at iteration: %d\n", iteration);
+                fprintf(stderr, "\n-- Expected histogram (CPU):\n");
+                log_vector(env->h_hist, env->h_hist_size);
+                fprintf(stderr, "\n-- Result histogram (GPU):\n");
+                log_reduce_d_hist(env);
+                fprintf(stderr, "\n-- Unreduced histogram (GPU):\n");
+                log_d_hist(env);
+            }
+            return false;
+        }
+    }
     // log_d_hist(env);
-    return false;
+    return true;
 }
 
 bool test_transpose(kernel_env env) {
@@ -81,16 +101,16 @@ bool test_scatter(kernel_env env) {
 
 bool test_radix_sort(kernel_env env) {
     radix_sort(env);
-    log_d_keys(env);
+    uint32_t res[env->d_keys_size];
     log_output_result(env);
-    return false;
-}
-
-bool test(bool (*f)(kernel_env), kernel_env env) {
-    bool success = f(env);
-    success ? fprintf(stderr, "Test passed!\n")
-            : fprintf(stderr, "Test FAILED!\n");
-    return success;
+    d_output(env, res);
+    for (int i = 0; i < env->d_keys_size - 1; ++i) {
+        if (res[i] > res[i + 1]) {
+            printf("i: %d, i+1: %d\n", res[i], res[i + 1]);
+            return false;
+        }
+    }
+    return true;
 }
 
 int main(int argc, char **argv) {
@@ -102,9 +122,11 @@ int main(int argc, char **argv) {
     kernel_env env =
         new_kernel_env(block_size, elem_pthread, bits, number_keys, max_value);
 
-    // success |= test(test_compute_histogram, env);
-    test_compute_histogram_local(env);
-    log_d_keys(env);
+    // success |= test(test_compute_histogram_local, env);
+    success |= test(test_radix_sort, env);
+    // log_d_keys(env);
+    // test_compute_histogram_local(env);
+    // log_d_keys(env);
     // log_d_hist(env);
     // log_d_hist_scan(env);
     cudaDeviceSynchronize();

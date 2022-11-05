@@ -1,5 +1,6 @@
 #ifndef RADIX_CPU
 #define RADIX_CPU
+#include "types.cu.h"
 
 void compute_histogram(uint32_t *h_keys, uint32_t *hist, uint32_t bits,
                        uint32_t in_size, uint32_t it) {
