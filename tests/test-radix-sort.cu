@@ -9,7 +9,7 @@
 #include "types.cu.h"
 #include "utils.cu.h"
 
-#define NUM_BLOCKS_NEEDED 20
+#define NUM_BLOCKS_NEEDED 500
 #define NUMBER_ELEMENT_PER_THREAD 4
 #define BLOCK_SIZE 256
 #define INPUT_MAX_SIZE NUMBER_ELEMENT_PER_THREAD * BLOCK_SIZE * NUM_BLOCKS_NEEDED
@@ -37,7 +37,7 @@ bool test(){
     bool success = true;
     printf("\n*** Testing radix sort ***\n");
     for (uint32_t number_keys = 2; number_keys < INPUT_MAX_SIZE;
-         number_keys*=2) {
+         number_keys+=50) {
 
         const uint32_t block_size = 256, elem_pthread = 4, bits = 4,
                        max_value = number_keys/2;

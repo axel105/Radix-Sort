@@ -1,4 +1,4 @@
-OPT_FLAGS = -O0
+OPT_FLAGS = -O3
 CUB = ../cub-code/cub-1.8.0
 EXEC = main
 CFLAGS = -g
