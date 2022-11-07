@@ -25,14 +25,6 @@ bool valid_histogram(kernel_env env) {
         compute_histogram_local(env, iteration);
         uint32_t hist_size = d_hist_size(env), histogram[hist_size], scanned_hist[hist_size];
         reduce_d_hist(env, histogram);
-        fprintf(stderr, "\n+++++++++++++++++++++ Iteration: %d ! ++++++++++++++++++++++\n", iteration);
-        fprintf(stderr, "NUMBER KEYS: %d\n", env->d_keys_size);
-        fprintf(stderr, "Scanned histogram\n");
-        log_d_hist_scan(env);
-        fprintf(stderr, "Non histogram\n");
-        log_d_hist(env);
-        fprintf(stderr, "\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-        
 
         if (!equal(env->h_hist, histogram, env->number_classes)) {
             if (TEST_DEBUG) {
@@ -71,7 +63,7 @@ bool sorted_properties(kernel_env env) {
     return true;
 }
 
-bool test_multiple_keys(){
+bool test(){
     bool success = true;
     printf("*** Testing compute histogram kernel properties ***\n");
     printf("- histogram computed is valid\n");
@@ -119,7 +111,9 @@ bool test_with_keys(const uint32_t number_keys){
 }
 
 int main(int argc, char **argv) {
-    bool success = test_with_keys(16384);
+    
+    // bool success = test_with_keys(16384);
+    bool success = test();
     print_test_result(success);
     return success ? 0 : 1;
 }

@@ -149,19 +149,62 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
  * @odata: transpose matrix
  * @idata: matrix to transpose
  */
-__global__ void transpose(uint32_t *odata, uint32_t *idata) {
+__global__ void transpose(uint32_t *odata, uint32_t *idata, int hist_size) {
     // no boundary checking needed as we spawn with a block size of 256, and our
     // histogram array size is a multiple of 256
-
     __shared__ uint32_t tile[256];
 
+    uint32_t width = hist_size/16;
     uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t index = 16 * (threadIdx.x % 16) + (threadIdx.x / 16);
 
     tile[index] = idata[globalId];
     __syncthreads();
 
-    odata[globalId] = tile[threadIdx.x];
+    /*     
+    0  -> 16     
+    1  -> 17     
+    ...     
+    15 -> 31     
+    16 -> width + 16     
+    17 -> width + 17    
+    ...     
+    31 -> width + 31     
+    32 -> 2*width + 16     
+    ...      
+    --> general formula: (thread/16) * width + blockId*16 + threadId%16
+    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ... _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ... _    
+    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ... _     
+    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _     
+    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _     
+    //     
+    //     
+    //     
+    //     
+    //     
+    //     
+    //     
+    //     
+    //     
+    //     
+    //
+    //     
+    */     
+    int globalIdOut = (threadIdx.x/16) * width + blockIdx.x*16 + threadIdx.x%16;
+
+    odata[globalIdOut] = tile[threadIdx.x];
+
+    __syncthreads();
+    __syncthreads();
+
+    // if(globalId == 0){
+    //     printf("\nTRANSPOSED HISTOGRAM\n[");
+    //     for(int i = 0; i < hist_size; ++i) {
+    //         if(i > 0 && i % (hist_size/16) == 0) printf("\n");
+    //         printf(" %d, ", odata[i]);
+    //     }
+    //     printf("]\n????????????????????????????????????????????????????\n");
+    // }
 }
 
 __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
@@ -212,23 +255,23 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
             output[global_index] = element;
         }
     }
-
-    // debug to remove later
-    __syncthreads();
-    uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
-    if(globalId == 0){
-        printf("\n??????????????????? Printing on GPU ????????????????\n");
-        printf("\nNON SCANNED HISTOGRAM\n[");
-        for(int i = 0; i < hist_size; ++i) {
-            if(i > 0 && i % num_buckets == 0) printf("\n");
-            printf(" %d, ", hist[i]);
-        }
-        printf("\nSCANNED TRANSPOSED HISTOGRAM\n[");
-        for(int i = 0; i < hist_size; ++i) {
-            if(i > 0 && i % (hist_size/16) == 0) printf("\n");
-            printf(" %d, ", hist_T_scanned[i]);
-        }
-        printf("]\n????????????????????????????????????????????????????\n");
-    }
+//
+//    // debug to remove later
+    // __syncthreads();
+    // uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    // if(globalId == 0){
+    //     printf("\n??????????????????? Printing on GPU ????????????????\n");
+    //     printf("\nNON SCANNED HISTOGRAM\n[");
+    //     for(int i = 0; i < hist_size; ++i) {
+    //         if(i > 0 && i % num_buckets == 0) printf("\n");
+    //         printf(" %d, ", hist[i]);
+    //     }
+    //     printf("\nSCANNED TRANSPOSED HISTOGRAM\n[");
+    //     for(int i = 0; i < hist_size; ++i) {
+    //         if(i > 0 && i % (hist_size/16) == 0) printf("\n");
+    //         printf(" %d, ", hist_T_scanned[i]);
+    //     }
+    //     printf("]\n????????????????????????????????????????????????????\n");
+    // }
 }
 #endif  // !RADIX_KERNEL

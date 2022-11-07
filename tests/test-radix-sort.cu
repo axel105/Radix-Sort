@@ -9,11 +9,13 @@
 #include "types.cu.h"
 #include "utils.cu.h"
 
-#define NUM_BLOCKS_NEEDED 2
-#define INPUT_MAX_SIZE 1024 * 16 * NUM_BLOCKS_NEEDED
+#define NUM_BLOCKS_NEEDED 20
+#define NUMBER_ELEMENT_PER_THREAD 4
+#define BLOCK_SIZE 256
+#define INPUT_MAX_SIZE NUMBER_ELEMENT_PER_THREAD * BLOCK_SIZE * NUM_BLOCKS_NEEDED
 
 bool sorted_array(kernel_env env) {
-    radix_sort(env, 0);
+    radix_sort(env);
     uint32_t *res =  (uint32_t *) calloc(env->d_keys_size, sizeof(uint32_t));
     d_output(env, res);
     for (int i = 0; i < env->d_keys_size - 1; ++i) {
@@ -22,7 +24,6 @@ bool sorted_array(kernel_env env) {
             debug_env_gpu_settings(env);
             debug_env_data_props(env);
             fprintf(stderr, "res[%i]: %d, res[%i]: %d\n", i, res[i], i+1, res[i + 1]);
-            log_output_result(env);
             fprintf(stderr, "\n+++++++++++++++++++++++++\n");
             free(res);
             return false;
@@ -74,7 +75,7 @@ bool test_with_keys(const uint32_t number_keys){
 }
 
 int main(int argc, char **argv) {
-    //bool success = test_with_keys(16384);
+    // bool success = test_with_keys(16384);
     bool success = test();
     print_test_result(success);
     return success ? 0 : 1;

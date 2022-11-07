@@ -22,8 +22,8 @@ void compute_histogram_local(kernel_env env, uint32_t iteration) {
 }
 
 void transpose_histogram(kernel_env env) {
-    transpose<<<env->num_blocks, env->block_size>>>(env->d_hist_transpose,
-                                                    env->d_hist);
+    transpose<<<env->d_hist_size/env->block_size, env->block_size>>>(env->d_hist_transpose,
+                                                    env->d_hist, env->d_hist_size);
 }
 
 
@@ -74,9 +74,6 @@ void radix_sort(kernel_env env) {
     for (uint32_t iteration = 0; iteration < size_in_bits<uint32_t>()/env->bits; iteration++) {
         fprintf(stderr, "****** ITERATION: %d\n", iteration);
         compute_histogram_local(env, iteration);
-        fprintf(stderr, "---- Compute histogram\n");
-        fprintf(stderr, "Input array\n");
-        log_d_keys(env);
         cudaDeviceSynchronize();
         transpose_histogram(env);
         cudaDeviceSynchronize();
@@ -96,22 +93,25 @@ void radix_sort(kernel_env env) {
 }
 
 void radix_sort(kernel_env env, uint32_t iteration) {
-        fprintf(stderr, "****** ITERATION: %d\n", iteration);
+        // fprintf(stderr, "****** ITERATION: %d\n", iteration);
         compute_histogram_local(env, iteration);
-        fprintf(stderr, "---- Compute histogram\n");
+        // fprintf(stderr, "---- Compute histogram\n");
         //fprintf(stderr, "Input array\n");
         //log_d_keys(env);
         cudaDeviceSynchronize();
         transpose_histogram(env);
+        // fprintf(stderr, "\n******TRANSPOSED HISTOGRAM: \n");
+        // log_d_hist_transpose(env);
+        // fprintf(stderr, "\n");
         cudaDeviceSynchronize();
         scan_transposed_histogram_exclusive(env);
         cudaDeviceSynchronize();
         scatter_coalesced(env, iteration);
-        fprintf(stderr, "---- Scatter (before swap)\n");
-        fprintf(stderr, "Input array\n");
-        log_d_keys(env);
-        fprintf(stderr, "Output array\n");
-        log_output_result(env);
+        // fprintf(stderr, "---- Scatter (before swap)\n");
+        // fprintf(stderr, "Input array\n");
+        // log_d_keys(env);
+        // fprintf(stderr, "Output array\n");
+        // log_output_result(env);
         cudaDeviceSynchronize();
 }
 
