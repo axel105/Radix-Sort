@@ -9,37 +9,7 @@
 #include "radix-sort.cu.h"
 #include "types.cu.h"
 #include "utils.cu.h"
-
-bool test_compute_histogram(kernel_env env) {
-    fprintf(stderr, "*** Testing compute histogram kernel!\n");
-    for (uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits) {
-        uint32_t iteration = it / env->bits;
-        // compute histogram on CPU
-        compute_histogram(env->h_keys, env->h_hist, env->bits, env->h_keys_size,
-                          iteration);
-
-        // compute histogram on GPU
-        compute_histogram(env, iteration);
-
-        // Validate histograms
-        uint32_t hist_size = d_hist_size(env), histogram[hist_size];
-        reduce_d_hist(env, histogram);
-
-        if (!equal(env->h_hist, histogram, env->number_classes)) {
-            if (DEBUG) {
-                fprintf(stderr, "Failure at iteration: %d\n", iteration);
-                fprintf(stderr, "\n-- Expected histogram (CPU):\n");
-                log_vector(env->h_hist, env->h_hist_size);
-                fprintf(stderr, "\n-- Result histogram (GPU):\n");
-                log_reduce_d_hist(env);
-                fprintf(stderr, "\n-- Unreduced histogram (GPU):\n");
-                log_d_hist(env);
-            }
-            return false;
-        }
-    }
-    return true;
-}
+#include <limits.h>
 
 bool test_compute_histogram_local(kernel_env env) {
     debug("*** Testing compute histogram local kernel!");
@@ -85,19 +55,6 @@ bool test_scan(kernel_env env) {
     return false;
 }
 
-bool test_get_scan_result(kernel_env env) {
-    fprintf(stderr, "*** Get condensed scan result\n");
-    get_condensed_scan(env);
-    log_scan_result(env);
-    return false;
-}
-
-bool test_scatter(kernel_env env) {
-    fprintf(stderr, "*** Scattering\n");
-    scatter(env, 0);
-    log_output_result(env);
-    return false;
-}
 
 bool test_radix_sort(kernel_env env) {
     radix_sort(env);
@@ -106,7 +63,7 @@ bool test_radix_sort(kernel_env env) {
     d_output(env, res);
     for (int i = 0; i < env->d_keys_size - 1; ++i) {
         if (res[i] > res[i + 1]) {
-            printf("i: %d, i+1: %d\n", res[i], res[i + 1]);
+            printf("res[%i]: %d, res[%i]: %d\n", i, res[i], i+1, res[i + 1]);
             return false;
         }
     }
@@ -117,18 +74,12 @@ int main(int argc, char **argv) {
     bool success = true;
     const int number_keys = parse_args(argc, argv);
 
-    const uint32_t block_size = 256, elem_pthread = 4, bits = 4, max_value = 16;
+    const uint32_t block_size = 256, elem_pthread = 4, bits = 4, max_value = INT_MAX;
 
     kernel_env env =
         new_kernel_env(block_size, elem_pthread, bits, number_keys, max_value);
 
-    // success |= test(test_compute_histogram_local, env);
     success |= test(test_radix_sort, env);
-    // log_d_keys(env);
-    // test_compute_histogram_local(env);
-    // log_d_keys(env);
-    // log_d_hist(env);
-    // log_d_hist_scan(env);
     cudaDeviceSynchronize();
     cudaCheckError();
 

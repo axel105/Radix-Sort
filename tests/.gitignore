@@ -1,2 +1,5 @@
 test-kernels
 test-compute-histogram
+test-radix-sort
+*.out
+*.txt
