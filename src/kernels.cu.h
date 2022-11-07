@@ -212,5 +212,23 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
             output[global_index] = element;
         }
     }
+
+    // debug to remove later
+    __syncthreads();
+    uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
+    if(globalId == 0){
+        printf("\n??????????????????? Printing on GPU ????????????????\n");
+        printf("\nNON SCANNED HISTOGRAM\n[");
+        for(int i = 0; i < hist_size; ++i) {
+            if(i > 0 && i % num_buckets == 0) printf("\n");
+            printf(" %d, ", hist[i]);
+        }
+        printf("\nSCANNED TRANSPOSED HISTOGRAM\n[");
+        for(int i = 0; i < hist_size; ++i) {
+            if(i > 0 && i % (hist_size/16) == 0) printf("\n");
+            printf(" %d, ", hist_T_scanned[i]);
+        }
+        printf("]\n????????????????????????????????????????????????????\n");
+    }
 }
 #endif  // !RADIX_KERNEL

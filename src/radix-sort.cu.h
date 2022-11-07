@@ -71,11 +71,35 @@ void scatter_coalesced(kernel_env env, int iter) {
 void radix_sort(kernel_env env) {
     // for (uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits) {
     // uint32_t iteration = it / env->bits;
-    for (uint32_t iteration = 0; iteration < size_in_bits<uint32_t>(); iteration++) {
-        //fprintf(stderr, "****** ITERATION: %d\n", iteration);
+    for (uint32_t iteration = 0; iteration < size_in_bits<uint32_t>()/env->bits; iteration++) {
+        fprintf(stderr, "****** ITERATION: %d\n", iteration);
         compute_histogram_local(env, iteration);
-        //debug("---- Compute histogram");
-        //debug("Input array");
+        fprintf(stderr, "---- Compute histogram\n");
+        fprintf(stderr, "Input array\n");
+        log_d_keys(env);
+        cudaDeviceSynchronize();
+        transpose_histogram(env);
+        cudaDeviceSynchronize();
+        scan_transposed_histogram_exclusive(env);
+        cudaDeviceSynchronize();
+        scatter_coalesced(env, iteration);
+        fprintf(stderr, "---- Scatter (before swap)\n");
+        fprintf(stderr, "Input array\n");
+        log_d_keys(env);
+        fprintf(stderr, "Output array\n");
+        log_output_result(env);
+        uint32_t *tmp = env->d_keys;
+        env->d_keys = env->d_output;
+        env->d_output = tmp;
+        cudaDeviceSynchronize();
+    }
+}
+
+void radix_sort(kernel_env env, uint32_t iteration) {
+        fprintf(stderr, "****** ITERATION: %d\n", iteration);
+        compute_histogram_local(env, iteration);
+        fprintf(stderr, "---- Compute histogram\n");
+        //fprintf(stderr, "Input array\n");
         //log_d_keys(env);
         cudaDeviceSynchronize();
         transpose_histogram(env);
@@ -83,16 +107,12 @@ void radix_sort(kernel_env env) {
         scan_transposed_histogram_exclusive(env);
         cudaDeviceSynchronize();
         scatter_coalesced(env, iteration);
-        //debug("---- Scatter (before swap)");
-        //debug("Input array");
-        //log_d_keys(env);
-        //debug("Output array");
-        //log_output_result(env);
-        uint32_t *tmp = env->d_keys;
-        env->d_keys = env->d_output;
-        env->d_output = tmp;
+        fprintf(stderr, "---- Scatter (before swap)\n");
+        fprintf(stderr, "Input array\n");
+        log_d_keys(env);
+        fprintf(stderr, "Output array\n");
+        log_output_result(env);
         cudaDeviceSynchronize();
-    }
 }
 
 #endif  //! RADIX_SORT

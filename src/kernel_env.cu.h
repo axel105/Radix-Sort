@@ -28,7 +28,7 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
     env->d_keys_size = number_keys;
     env->d_hist_size =
         env->num_blocks * env->number_classes +
-        (env->number_classes - (env->num_blocks % env->number_classes)) *
+        ((env->number_classes - (env->num_blocks % env->number_classes))%env->number_classes) *
             env->number_classes;
 
     // *** Allocate memory and initialize the data
@@ -150,6 +150,10 @@ void d_keys(kernel_env env, uint32_t *output) {
 
 void d_hist(kernel_env env, uint32_t *output) {
     d_vec(env->d_hist, output, env->d_hist_size);
+}
+
+void d_hist_scan(kernel_env env, uint32_t *output) {
+    d_vec(env->d_hist_scan, output, env->d_hist_size);
 }
 
 void d_hist_transpose(kernel_env env, uint32_t *output) {
