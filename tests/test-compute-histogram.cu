@@ -9,7 +9,7 @@
 #include "types.cu.h"
 #include "utils.cu.h"
 
-#define NUM_BLOCKS_NEEDED 17
+#define NUM_BLOCKS_NEEDED 500
 #define BLOCK_SIZE 256
 #define ELEMENT_PER_THREAD 4
 #define INPUT_MAX_SIZE BLOCK_SIZE * ELEMENT_PER_THREAD * NUM_BLOCKS_NEEDED
@@ -69,7 +69,7 @@ bool test(){
     printf("- histogram computed is valid\n");
     printf("- The keys are sorted per block\n");
     for (uint32_t number_keys = 2; number_keys < INPUT_MAX_SIZE;
-         number_keys*=2) {
+         number_keys+=50) {
 
         const uint32_t block_size = 256, elem_pthread = 4, bits = 4,
                        max_value = number_keys/2;
