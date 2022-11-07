@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <iostream>
+#include "types.cu.h"
 
 #define GPU_RUNS 400
 

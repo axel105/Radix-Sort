@@ -70,6 +70,7 @@ kernel_env new_kernel_env(uint32_t block_size, uint32_t elem_pthread,
     return env;
 }
 
+
 void free_env(kernel_env env) {
     if (DEBUG) fprintf(stderr, "Cleaning kernel env: %p!\n", env);
     if (env == NULL) return;
