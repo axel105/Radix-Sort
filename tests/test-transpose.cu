@@ -12,6 +12,8 @@
 #define NUM_BLOCKS_NEEDED 3
 #define INPUT_MAX_SIZE 1024 * 16 * NUM_BLOCKS_NEEDED
 
+
+
 bool valid_transpose(kernel_env env) {
     transpose_histogram(env);
     uint32_t t_hist[env->d_hist_size];
@@ -19,14 +21,25 @@ bool valid_transpose(kernel_env env) {
     d_hist_transpose(env, t_hist);
     d_hist(env, hist);
     
-    uint32_t width = env->elem_pthread * env->block_size;
 
-    for(int i = 0; i < env->d_hist_size; ++i){
-        //if(hist[i] != t_hist[i * width 
-        //find formula
-        
+    uint32_t new_array[env->d_hist_size];
+    int m = env->d_hist_size/16;
+    int n = 16;
+    for (int i = 0; i < m; ++i )
+    {
+       for (int j = 0; j < n; ++j )
+       {
+          // Index in the original matrix.
+          int index1 = i*n+j;
+
+          // Index in the transpose matrix.
+          int index2 = j*m+i;
+
+          new_array[index2] = hist[index1];
+       }
     }
-    return true;
+
+    return equal(new_array, t_hist, env->d_hist_size);
 }
 
 
@@ -45,7 +58,7 @@ int main(int argc, char **argv) {
                                     number_keys, max_value);
         printf("\rTesting with %d keys", number_keys);
 
-        success &= test(valid_histogram, env);
+        success &= test(valid_transpose, env);
 
         free_env(env);
     }

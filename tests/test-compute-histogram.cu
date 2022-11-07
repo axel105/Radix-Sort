@@ -9,8 +9,10 @@
 #include "types.cu.h"
 #include "utils.cu.h"
 
-#define NUM_BLOCKS_NEEDED 3
-#define INPUT_MAX_SIZE 1024 * 16 * NUM_BLOCKS_NEEDED
+#define NUM_BLOCKS_NEEDED 17
+#define BLOCK_SIZE 256
+#define ELEMENT_PER_THREAD 4
+#define INPUT_MAX_SIZE BLOCK_SIZE * ELEMENT_PER_THREAD * NUM_BLOCKS_NEEDED
 
 bool valid_histogram(kernel_env env) {
     for (uint32_t it = 0; it < size_in_bits<uint32_t>(); it += env->bits) {
@@ -21,8 +23,16 @@ bool valid_histogram(kernel_env env) {
 
         // compute histogram on GPU
         compute_histogram_local(env, iteration);
-        uint32_t hist_size = d_hist_size(env), histogram[hist_size];
+        uint32_t hist_size = d_hist_size(env), histogram[hist_size], scanned_hist[hist_size];
         reduce_d_hist(env, histogram);
+        fprintf(stderr, "\n+++++++++++++++++++++ Iteration: %d ! ++++++++++++++++++++++\n", iteration);
+        fprintf(stderr, "NUMBER KEYS: %d\n", env->d_keys_size);
+        fprintf(stderr, "Scanned histogram\n");
+        log_d_hist_scan(env);
+        fprintf(stderr, "Non histogram\n");
+        log_d_hist(env);
+        fprintf(stderr, "\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+        
 
         if (!equal(env->h_hist, histogram, env->number_classes)) {
             if (TEST_DEBUG) {
@@ -61,10 +71,8 @@ bool sorted_properties(kernel_env env) {
     return true;
 }
 
-int main(int argc, char **argv) {
+bool test_multiple_keys(){
     bool success = true;
-
-
     printf("*** Testing compute histogram kernel properties ***\n");
     printf("- histogram computed is valid\n");
     printf("- The keys are sorted per block\n");
@@ -84,6 +92,34 @@ int main(int argc, char **argv) {
         free_env(env);
     }
     printf("\n");
+    return success;
+
+}
+
+bool test_with_keys(const uint32_t number_keys){
+    bool success = true;
+    printf("*** Testing compute histogram kernel properties ***\n");
+    printf("- histogram computed is valid\n");
+    printf("- The keys are sorted per block\n");
+
+    const uint32_t block_size = 256, elem_pthread = 4, bits = 4,
+                    max_value = number_keys/2;
+
+    kernel_env env = new_kernel_env(block_size, elem_pthread, bits,
+                                number_keys, max_value);
+    printf("\rTesting with key: %d", number_keys);
+
+    success &= test(valid_histogram, env);
+    success &= test(sorted_properties, env);
+
+    free_env(env);
+    printf("\n");
+    return success;
+
+}
+
+int main(int argc, char **argv) {
+    bool success = test_with_keys(16384);
     print_test_result(success);
     return success ? 0 : 1;
 }

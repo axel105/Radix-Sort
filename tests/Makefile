@@ -11,10 +11,12 @@ all: compile-all test-all
 compile-all: test-kernels.cu test_utils.cu.h cpu_functions.cu.h
 	nvcc $(CFLAGS) -o test-radix-sort test-radix-sort.cu &&\
 	nvcc $(CFLAGS) -o test-compute-histogram test-compute-histogram.cu &&\
+	nvcc $(CFLAGS) -o test-transpose test-transpose.cu &&\
 	nvcc $(CFLAGS) -o test-kernels test-kernels.cu
 
 test-all:
 	./test-compute-histogram &&\
+	./test-transpose &&\
 	./test-radix-sort
 
 $(TEST): test-kernels.cu test_utils.cu.h cpu_functions.cu.h
@@ -26,8 +28,11 @@ test-compute-histogram: test-compute-histogram.cu test_utils.cu.h cpu_functions.
 test-radix-sort: test-radix-sort.cu test_utils.cu.h cpu_functions.cu.h
 	nvcc $(CFLAGS) $(OPTFLAGS) -o $@ $< && ./test-radix-sort
 
+test-transpose: test-transpose.cu test_utils.cu.h cpu_functions.cu.h
+	nvcc $(CFLAGS) $(OPTFLAGS) -o $@ $< && ./test-transpose
+
 
 .PHONY: clean
 
 clean:
-	rm -f $(TEST) test-compute-histogram
+	rm -f $(TEST) test-compute-histogram test-transpose test-radix-sort
