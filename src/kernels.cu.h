@@ -21,14 +21,14 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
                                        uint32_t elem_pthread,
                                        uint32_t d_keys_size,
                                        uint32_t num_classes, uint32_t it) {
-    uint32_t globalId = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t width = blockDim.x * elem_pthread;
-    uint32_t size = blockDim.x * elem_pthread * num_classes;
+    
+    uint32_t width = 1024; // blockDim.x * elem_pthread
+    uint32_t size = 16384; // blockDim.x * elem_pthread * num_classes;
 
     // shared_histogram[number_classes][block_size*elem_pthread]
     extern __shared__ uint16_t flag_arrays[];
-    __shared__ uint32_t shared_keys[256 * 4];
-    __shared__ uint32_t shared_sorted_keys[256 * 4];
+    __shared__ uint32_t shared_keys[1024]; // 4 * 256
+    __shared__ uint32_t shared_sorted_keys[1024]; // 4 * 256
     __shared__ uint32_t shared_histogram[16];
     __shared__ uint32_t shared_scan_hist[16];
 
@@ -39,10 +39,13 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
     // make a flag array from keys
 
     uint32_t nth_bits = it * bits;
-    uint32_t class_range = num_classes - 1;
+    uint32_t class_range = 15; //num_classes - 1;
+
+    uint32_t block_offset = blockIdx.x * width;
+
+    #pragma unroll
     for (uint32_t i = 0; i < elem_pthread;
          ++i) {  // handle elements per thread numbner of elements
-        uint32_t block_offset = blockIdx.x * blockDim.x * elem_pthread;
         uint32_t block_index = blockDim.x * i + threadIdx.x;
         uint32_t index = block_offset + block_index;
         if (index < d_keys_size) {  // check that we're in bounds
@@ -56,21 +59,48 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
     }
 
     __syncthreads();  // waiting to flag the entire array
-
+    /*
     // scan the flag array
     // Specialize BlockScan for a 1D block of 256 threads of type int
+    typedef cub::BlockScan<uint16_t, 16> BlockScan16;
+    __shared__ typename BlockScan16::TempStorage temp_storage16;
+
+    uint16_t thread_data[64];
+    for (int i = 0; i < 64; ++i) {
+        int index = (threadIdx.x * 64) + i;
+        // printf("***threadIdx: %d, index: %d\n", threadIdx.x, index);
+        thread_data[i] = flag_arrays[index];
+    }
+
+    // scan
+    BlockScan16(temp_storage16).InclusiveSum(thread_data, thread_data);
+
+    for (int i = 0; i < 64; ++i) {
+        int index = (threadIdx.x * 64) + i;
+        // printf("***threadIdx: %d, index: %d\n", threadIdx.x, index);
+        flag_arrays[index] = thread_data[i];
+    }
+    */
+
     typedef cub::BlockScan<uint16_t, 256> BlockScan16;
     __shared__ typename BlockScan16::TempStorage temp_storage16;
     // TODO: make thread process 4 elements, thread_data => thread_data[4]
+    
+    uint32_t stride = threadIdx.x * elem_pthread;
+
+    #pragma unroll
     for (int rank = 0; rank < num_classes; ++rank) {
         uint16_t thread_data[4];
         // load the data from shared
+        uint32_t offset = (rank * width) + stride;
+
+        #pragma unroll
         for (int i = 0; i < elem_pthread; ++i) {
-            int index = (rank * width) + threadIdx.x * elem_pthread + i;
+            int index = offset + i;
             // printf("***threadIdx: %d, index: %d\n", threadIdx.x, index);
             thread_data[i] = flag_arrays[index];
         }
-        __syncthreads();  // maybe optional
+        //__syncthreads();  // maybe optional
 
         // scan
         BlockScan16(temp_storage16).InclusiveSum(thread_data, thread_data);
@@ -78,8 +108,10 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
         __syncthreads();  // required (by documentation)
 
         // write back in shared_memory
+
+        #pragma unroll
         for (int i = 0; i < elem_pthread; ++i) {
-            int index = (rank * width) + threadIdx.x * elem_pthread + i;
+            int index = offset + i;
             flag_arrays[index] = thread_data[i];
         }
     }
@@ -101,9 +133,9 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
     __syncthreads();  // waiting for the scan hist
 
     // sort array keys locally
+    #pragma unroll
     for (uint32_t i = 0; i < elem_pthread;
          ++i) {  // handle elements per thread numbner of elements
-        uint32_t block_offset = blockIdx.x * blockDim.x * elem_pthread;  // 0
         uint32_t block_index = blockDim.x * i + threadIdx.x;             //
         uint32_t index = block_offset + block_index;                     // 11
         if (index < d_keys_size) {  // check that we're in bounds
@@ -120,9 +152,10 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
     __syncthreads();  // waiting  for the sort
 
     // write back sorted block in coalesced fascion
+
+    #pragma unroll
     for (uint32_t i = 0; i < elem_pthread;
          ++i) {  // handle elements per thread numbner of elements
-        uint32_t block_offset = blockIdx.x * blockDim.x * elem_pthread;
         uint32_t block_index = blockDim.x * i + threadIdx.x;
         uint32_t index = block_offset + block_index;
         if (index < d_keys_size) {  // check that we're in bounds
@@ -135,8 +168,7 @@ __global__ void compute_histogram_sort(uint32_t *d_keys, uint32_t *g_hist,
     if (threadIdx.x < num_classes) {
         int offset =
             blockIdx.x * num_classes +
-            threadIdx
-                .x;  // calculate position in global memory for histogram value
+            threadIdx.x;  // calculate position in global memory for histogram value
         g_hist[offset] = shared_histogram[threadIdx.x];  // copy histogram value
                                                          // to global memory
         g_scan_hist[offset] = shared_scan_hist[threadIdx.x];
@@ -161,41 +193,9 @@ __global__ void transpose(uint32_t *odata, uint32_t *idata, int hist_size) {
     tile[index] = idata[globalId];
     __syncthreads();
 
-    /*     
-    0  -> 16     
-    1  -> 17     
-    ...     
-    15 -> 31     
-    16 -> width + 16     
-    17 -> width + 17    
-    ...     
-    31 -> width + 31     
-    32 -> 2*width + 16     
-    ...      
-    --> general formula: (thread/16) * width + blockId*16 + threadId%16
-    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ... _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ... _    
-    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ... _     
-    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _     
-    // _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _     
-    //     
-    //     
-    //     
-    //     
-    //     
-    //     
-    //     
-    //     
-    //     
-    //     
-    //
-    //     
-    */     
     int globalIdOut = (threadIdx.x/16) * width + blockIdx.x*16 + threadIdx.x%16;
 
     odata[globalIdOut] = tile[threadIdx.x];
-
-    __syncthreads();
-    __syncthreads();
 
     // if(globalId == 0){
     //     printf("\nTRANSPOSED HISTOGRAM\n[");
@@ -215,12 +215,10 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
     // scan the histogram and save the data in shared memory
 
     uint32_t num_buckets = 1 << bits;
-    __shared__ uint32_t local_hist[16];
     __shared__ uint32_t scanned_hist[16];
 
     if (threadIdx.x < num_buckets) {  // copy histogram corresponding to block
                                       // into shared memory
-        local_hist[threadIdx.x] = hist[num_buckets * blockIdx.x + threadIdx.x];
         scanned_hist[threadIdx.x] =
             hist_rowwise_scanned[num_buckets * blockIdx.x + threadIdx.x];
     }
@@ -232,14 +230,18 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
     // - scan of the histogram must be exclusive
     // - scan transpose histogram must be exclusive
 
+    uint32_t global_offset = blockIdx.x * blockDim.x * elem_pthread;
+    uint32_t max_bucket = num_buckets - 1;
+    uint32_t width = hist_size >> bits;
+
+    #pragma unroll
     for (int i = 0; i < 4; ++i) {  // each thread scatters 4 elements
         uint32_t next_local = i * blockDim.x + threadIdx.x;
-        uint32_t next_global =
-            blockIdx.x * blockDim.x * elem_pthread + next_local;
+        uint32_t next_global = global_offset + next_local;
 
         if (next_global < key_size) {
             uint32_t element = keys[next_global];
-            uint32_t rank = (element >> (it * bits)) & (num_buckets - 1);
+            uint32_t rank = (element >> (it * bits)) & (max_bucket);
             uint32_t number_of_elems_in_previous_ranks_locally =
                 scanned_hist[rank];
             int local_rank_offset =
@@ -250,7 +252,7 @@ __global__ void scatter_coalesced(uint32_t *keys, uint32_t *output,
 
             // hist_T_scanned[rank][blockIdx.x]
             int global_rank_index_start =
-                hist_T_scanned[rank * (hist_size / num_buckets) + blockIdx.x];
+                hist_T_scanned[rank * width + blockIdx.x];
             int global_index = global_rank_index_start + local_rank_offset;
             output[global_index] = element;
         }
