@@ -82,30 +82,37 @@ double bench_radix_sort(kernel_env env){
 
 
 int main(int argc, char **argv) {
-    const int number_keys = parse_args(argc, argv);
+    //const int number_keys = parse_args(argc, argv);
+    printf("N;RADIX;CUB\n");
 
-    const uint32_t block_size = 256, elem_pthread = 4, bits = 4, max_value = 16;
-    kernel_env env = 
-        new_kernel_env(block_size, elem_pthread, bits, number_keys, max_value);
-    kernel_env cub_env = copy(env);
+    for(int number_keys = 10000; number_keys < 100000000; number_keys *= 10){
 
-    //Allocate and Initialize Device data
-    uint32_t* d_keys_in;
-    uint32_t* d_keys_out;
-    cudaSucceeded(cudaMalloc((void**) &d_keys_in,  number_keys * sizeof(uint32_t)));
-    cudaSucceeded(cudaMemcpy(d_keys_in, env->h_keys, number_keys * sizeof(uint32_t), cudaMemcpyHostToDevice));
-    cudaSucceeded(cudaMalloc((void**) &d_keys_out, number_keys * sizeof(uint32_t)));
+        const uint32_t block_size = 256, elem_pthread = 4, bits = 4, max_value = 16;
+        kernel_env env = 
+            new_kernel_env(block_size, elem_pthread, bits, number_keys, max_value);
+        kernel_env cub_env = copy(env);
+
+        //Allocate and Initialize Device data
+        uint32_t* d_keys_in;
+        uint32_t* d_keys_out;
+        cudaSucceeded(cudaMalloc((void**) &d_keys_in,  number_keys * sizeof(uint32_t)));
+        cudaSucceeded(cudaMemcpy(d_keys_in, env->h_keys, number_keys * sizeof(uint32_t), cudaMemcpyHostToDevice));
+        cudaSucceeded(cudaMalloc((void**) &d_keys_out, number_keys * sizeof(uint32_t)));
 
 
-    double elapsed = bench_radix_sort(env);
-    printf("Radix Sorting for N=%lu runs in: %.2f us\n", number_keys, elapsed);
+        printf("%d;", number_keys);
+        double elapsed = bench_radix_sort(env);
+        //printf("Radix Sorting for N=%lu runs in: %.2f us\n", number_keys, elapsed);
+        printf("%.2f;",elapsed);
 
-    double cub_elapsed = sortRedByKeyCUB(d_keys_in, d_keys_out, number_keys);
-    printf("CUB Sorting for N=%lu runs in: %.2f us\n", number_keys, cub_elapsed);
+        double cub_elapsed = sortRedByKeyCUB(d_keys_in, d_keys_out, number_keys);
+        //printf("CUB Sorting for N=%lu runs in: %.2f us\n", number_keys, cub_elapsed);
+        printf("%.2f\n",cub_elapsed);
 
-    free_env(env);
-    // Cleanup and closing
-    cudaFree(d_keys_in); cudaFree(d_keys_out);
+        free_env(env);
+        // Cleanup and closing
+        cudaFree(d_keys_in); cudaFree(d_keys_out);
+    }
 
     return 0;
 }
